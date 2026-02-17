@@ -5,6 +5,10 @@ import pandas as pd
 import networkx as nx
 from ortools.sat.python import cp_model
 from fastapi.middleware.cors import CORSMiddleware
+from neo4j import GraphDatabase
+
+URI = "bolt://localhost:7687"
+AUTH = ("neo4j", "tesis123")
 
 
 app = FastAPI(title="Sistema de Planificación Académica - Uninorte")
@@ -18,31 +22,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 print("Cargando grafo de conocimientos...")
-df = pd.read_csv('malla_sistemas_nuevo.csv')
-df['prerrequisitos'] = df['prerrequisitos'].fillna('')
 
-G = nx.DiGraph()
+def cargar_grafo_desde_neo4j():
+    """
+    Se conecta a Neo4j, descarga todos los nodos y relaciones,
+    y reconstruye el grafo NetworkX en memoria para el optimizador.
+    """
+    driver = GraphDatabase.driver(URI, auth=AUTH)
+    NuevoG = nx.DiGraph()
+    
+    with driver.session() as session:
+        # 1. Traer todos los nodos
+        result_nodos = session.run("MATCH (m:Materia) RETURN m")
+        for record in result_nodos:
+            nodo = record["m"]
+            NuevoG.add_node(nodo["codigo"], 
+                           nombre=nodo["nombre"],
+                           creditos=nodo["creditos"],
+                           semestre=nodo["semestre"],
+                           min_creditos_req=nodo["min_creditos_req"],
+                           tipo=nodo["tipo"])
+        
+        # 2. Traer todas las relaciones
+        result_rels = session.run("MATCH (a)-[:HABILITA]->(b) RETURN a.codigo, b.codigo")
+        for record in result_rels:
+            origen = record["a.codigo"]
+            destino = record["b.codigo"]
+            NuevoG.add_edge(origen, destino)
+            
+    driver.close()
+    print(f"Grafo cargado desde Neo4j: {len(NuevoG.nodes)} materias.")
+    return NuevoG
 
-# Agregar nodos (Materias)
-for _, row in df.iterrows():
-    G.add_node(row['codigo'], 
-               nombre=row['nombre'], 
-               creditos=int(row['creditos']), 
-               semestre=int(row['semestre']),
-               min_creditos_req=int(row['min_creditos_req']),
-               tipo=row['tipo'])
+def cargar_grafo_desde_csv():
+    df = pd.read_csv('malla_sistemas_nuevo.csv')
+    df['prerrequisitos'] = df['prerrequisitos'].fillna('')
+    G = nx.DiGraph()
 
-# Agregar aristas (Prerrequisitos)
-for _, row in df.iterrows():
-    if row['prerrequisitos']:
-        reqs = str(row['prerrequisitos']).split(';')
-        for req in reqs:
-            req = req.strip()
-            # Solo agregamos la arista si el prerrequisito existe en el grafo
-            if req in G.nodes:
-                G.add_edge(req, row['codigo'])
+    # Agregar nodos (Materias)
+    for _, row in df.iterrows():
+        G.add_node(row['codigo'], 
+                nombre=row['nombre'], 
+                creditos=int(row['creditos']), 
+                semestre=int(row['semestre']),
+                min_creditos_req=int(row['min_creditos_req']),
+                tipo=row['tipo'])
 
-print(f"Grafo cargado con {len(G.nodes)} materias y {len(G.edges)} conexiones.")
+    # Agregar aristas (Prerrequisitos)
+    for _, row in df.iterrows():
+        if row['prerrequisitos']:
+            reqs = str(row['prerrequisitos']).split(';')
+            for req in reqs:
+                req = req.strip()
+                # Solo agregamos la arista si el prerrequisito existe en el grafo
+                if req in G.nodes:
+                    G.add_edge(req, row['codigo'])
+
+    print(f"Grafo cargado con {len(G.nodes)} materias y {len(G.edges)} conexiones.")
+    return G
+
+try:
+    G = cargar_grafo_desde_neo4j()
+except Exception as e:
+    print(f"Error conectando a Neo4j: {e}. Asegúrate que Docker esté corriendo.")
+    # Fallback: Si falla Neo4j, podrías cargar el CSV por seguridad o lanzar error
+    G = cargar_grafo_desde_csv()
+
+
 
 # --- 2. MODELOS DE DATOS (Para que la API entienda JSON) ---
 class PerfilEstudiante(BaseModel):
