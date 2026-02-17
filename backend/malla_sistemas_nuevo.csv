@@ -1,0 +1,63 @@
+﻿codigo,nombre,creditos,prerrequisitos,semestre,tipo,correquisitos,dificultad,min_creditos_req
+MAT1031,Algebra Lineal,3,,1,Obligatoria,,1,0
+MAT1101,Calculo I,5,,1,Obligatoria,,1,0
+IST0010,Introduccion a la Ingenieria de Sistemas,1,,1,Obligatoria,,1,0
+IST2088,Algoritmia y Programacion I,3,,1,Obligatoria,,1,0
+CAS3020,Competencias Comunicativas I,3,,1,Obligatoria,,1,0
+ELG1140,Electiva en Historia,3,,2,Electiva,,1,0
+MAT1111,Calculo II,4,MAT1101,2,Obligatoria,,1,0
+FIS1023,Fisica Mecanica,4,MAT1101,2,Obligatoria,,1,0
+IST2089,Algoritmia y Programacion II,3,IST2088,2,Obligatoria,,1,0
+CAS3030,Competencias Comunicativas II,3,CAS3020,2,Obligatoria,,1,0
+ELG1130,Electiva en Humanidades,3,,3,Electiva,,1,0
+MAT1121,Calculo III,4,MAT1031;MAT1111,3,Obligatoria,,1,0
+FIS1043,Fisica Calor Ondas,4,FIS1023;MAT1101,3,Obligatoria,,1,0
+IST4021,Estructura de Datos I,3,IST2089,3,Obligatoria,,1,0
+IST2110,Programacion Orientada a Objetos,3,IST2089,3,Obligatoria,,1,0
+ELG1150,Electiva en Ciencias de la vida,3,,4,Electiva,,1,0
+MAT4011,Ecuaciones Diferenciales,3,,4,Obligatoria,,1,0
+FIS1033,Fisica Electricidad,4,FIS1023;MAT1111,4,Obligatoria,,1,0
+IST4031,Estructura de Datos II,3,IST4021,4,Obligatoria,,1,0
+MAT4021,Matematicas Discretas,3,,4,Obligatoria,,1,0
+ELG0007,Electiva en Ciencias Básicas,3,,5,Obligatoria,,1,0
+EST7042,Análisis de Datos en Ingenieria I,4,MAT1111,5,Obligatoria,,1,0
+IST4310,Algoritmos y Complejidad,3,IST4031,5,Obligatoria,,1,0
+IST4330,Estructuras Discretas,3,MAT4021,5,Obligatoria,,1,0
+IST7072,Diseño Digital,3,MAT4021,5,Obligatoria,,1,0
+IIN4310,Examen Comprensivo I,0,MAT4011;MAT1121;FIS1023;FIS1033;FIS1043,5,Obligatoria,,1,0
+IST4370,Seminario de Carrera I,0,,5,Obligatoria,,1,0
+ELG0008,Electiva Basica Profesional,3,,6,Obligatoria,,1,0
+IST4360,Soluciones Computacionales a Problemas de Ingenieria,3,MAT4011;IST2088,6,Obligatoria,,1,0
+IST7111,Bases de Datos,3,IST4310,6,Obligatoria,,1,0
+IST7191,Redes de Computación,3,,6,Obligatoria,,1,0
+IST4012,Estructura del Computador I,3,IST7072,6,Obligatoria,,1,0
+ELG1170,Electiva en Ética,3,,7,Electiva,,1,0
+IST7420,Optimización,3,EST7042;IST4360,7,Obligatoria,,1,0
+IST7121,Diseño de Software I,3,IST7111,7,Obligatoria,,1,0
+IST7081,Sistemas Operacionales,3,IST4012,7,Obligatoria,,1,0
+IST7102,Estructura del Computador II,3,IST4012,7,Obligatoria,,1,0
+ELG1190,Electiva en Ciencias Sociales,3,,8,Electiva,,1,0
+ELG1301,Electiva Profesional I,3,,8,Obligatoria,,1,0
+IST7122,Diseño de Software II,3,IST7121,8,Obligatoria,,1,0
+ELG1302,Electiva en Redes,2,IST7191,8,Obligatoria,,1,0
+IST7410,Compiladores,3,IST2110;IST4031,8,Obligatoria,,1,0
+ELG8400,Electiva Innovacion DLLO y SOC,3,,8,Electiva,,1,0
+ELG1160,Electiva en Filosofía ,3,,9,Electiva,,1,0
+ELG1305,Electiva Profesional II,3,,9,Obligatoria,,1,0
+ELG1303,Electiva Ciencias de la Computación,3,,9,Obligatoria,,1,0
+ELG1304,Electiva Gestión Informatica,3,,9,Obligatoria,,1,0
+ELP4030,Electiva Formación Complementaria Libre I,3,,9,Obligatoria,,1,0
+IIN4319,Examen Comprensivo II,0,IIN4310,9,Obligatoria,,1,116
+ELG1180,Electiva en Estudios del Caribe,3,,10,Electiva,,1,0
+ELG1306,Electiva Profesional III,3,,10,Obligatoria,,1,0
+INV7363,Proyecto Final,3,IST7122;IIN4319;IGL7080,10,Obligatoria,,1,0
+ELP8090,Electiva Formación Complementaria Libre II,3,,10,Obligatoria,,1,0
+IST4380,Seminario de Carrera II,0,IST4370,10,Obligatoria,,1,0
+IGL1010,Exigencia de Idiomas I,0,,0,Requisito_Idioma,,1,0
+IGL1020,Exigencia de Idiomas II,0,IGL1010,0,Requisito_Idioma,,1,0
+IGL1030,Exigencia de Idiomas III,0,IGL1020,0,Requisito_Idioma,,1,0
+IGL1040,Exigencia de Idiomas IV,0,IGL1030,0,Requisito_Idioma,,1,0
+IGL4010,Exigencia de Idiomas V,0,IGL1040,0,Requisito_Idioma,,1,0
+IGL4040,Exigencia de Idiomas VI,0,IGL4010,0,Requisito_Idioma,,1,0
+IGL7030,Exigencia de Idiomas VII,0,IGL4040,0,Requisito_Idioma,,1,0
+IGL7080,Exigencia de Idiomas VIII,0,IGL7030,0,Requisito_Idioma,,1,0
