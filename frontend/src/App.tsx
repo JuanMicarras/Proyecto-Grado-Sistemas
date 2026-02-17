@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import 'reactflow/dist/style.css';
 
-// Asegúrate de que este puerto coincida con el de uvicorn (normalmente 8000)
+// Asegurar de que este puerto coincida con el de uvicorn (normalmente 8000)
 const API_URL = "http://127.0.0.1:8000";
 
 function App() {
@@ -19,7 +19,6 @@ function App() {
 
   const fetchMaterias = async () => {
     try {
-        // CAMBIO CLAVE: Usamos GET a /catalogo
         const res = await axios.get(`${API_URL}/catalogo`);
         
         console.log("Datos recibidos del backend:", res.data); // Para depuración
@@ -57,6 +56,7 @@ function App() {
       
       const res = await axios.post(`${API_URL}/optimizar`, payload);
       setPlanSugerido(res.data.plan);
+      console.log("Plan sugerido recibido:", res.data.plan); // Para depuración
     } catch (error) {
       alert("Error: " + (error.response?.data?.detail || "No se pudo generar el plan. Verifica que no hayas marcado todas las materias o que el servidor funcione."));
     }
@@ -92,7 +92,6 @@ function App() {
         <p>Marca las materias aprobadas:</p>
 
         <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
-            {/* AQUÍ ESTABA EL ERROR: Agregamos materias?.map para seguridad */}
             {materias && materias.length > 0 ? (
                 materias.map((m) => (
                     <div key={m.codigo} 

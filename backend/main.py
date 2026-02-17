@@ -70,7 +70,7 @@ def calcular_semestre_real_estudiante(aprobadas, G):
     return min(semestres_pendientes)
 
 
-# Actualizamos la función del solver
+
 def resolver_ruta_optima(materias_faltantes, aprobadas, G, max_creditos_semestre=18, es_avance_flexible=False):
     model = cp_model.CpModel()
     x = {}
@@ -244,8 +244,11 @@ def generar_plan(opciones: OpcionesSimulacion):
     # Formatear respuesta
     respuesta = []
     for s in sorted(plan.keys()):
+        materias_del_semestre = plan[s]
+        total_creditos = sum(m['creditos'] for m in materias_del_semestre)
         respuesta.append({
             "semestre_relativo": s + 1,
+            "creditos": total_creditos,
             "materias": plan[s]
         })
     return {"plan": respuesta}
