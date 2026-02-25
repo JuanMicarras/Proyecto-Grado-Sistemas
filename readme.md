@@ -47,12 +47,18 @@ El sistema sigue una arquitectura desacoplada **Cliente-Servidor**:
 
 ## ⚙️ Instalación y Ejecución
 Sigue estos pasos para correr el proyecto en local:
-
-### 1. Configurar el Backend
+### 1. Levantar Base de Datos (Neo4j)
+``` Bash
+docker run -d --name tesis-neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/tesis123 neo4j:latest
+```
+Acceder al panel en: http://localhost:7474
+### 2. Configurar el Backend
 ``` Bash
 cd backend
 # (Opcional) Crear entorno virtual: python -m venv venv
 pip install -r requirements.txt
+# (Solo la primera vez) Cargar datos semilla
+python loader.py
 uvicorn main:app --reload
 El servidor iniciará en: http://127.0.0.1:8000
 ```
