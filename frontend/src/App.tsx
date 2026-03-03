@@ -57,6 +57,7 @@ function App() {
       
       const res = await axios.post(`${API_URL}/optimizar`, payload);
       setPlanSugerido(res.data.plan);
+      console.log("Plan sugerido recibido:", res.data.plan); // Para depuración
     } catch (error) {
       alert("Error: " + (error.response?.data?.detail || "No se pudo generar el plan. Verifica que no hayas marcado todas las materias o que el servidor funcione."));
     }

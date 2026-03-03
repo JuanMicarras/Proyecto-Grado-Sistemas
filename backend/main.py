@@ -70,8 +70,8 @@ def calcular_semestre_real_estudiante(aprobadas, G):
     return min(semestres_pendientes)
 
 
-# Actualizamos la función del solver
-def resolver_ruta_optima(materias_faltantes, aprobadas, G, max_creditos_semestre=18, es_avance_flexible=False):
+
+def resolver_ruta_optima(materias_faltantes, aprobadas, G, max_creditos_semestre=17, es_avance_flexible=False):
     model = cp_model.CpModel()
     x = {}
     semestre_materia = {}
@@ -83,7 +83,7 @@ def resolver_ruta_optima(materias_faltantes, aprobadas, G, max_creditos_semestre
     # Horizonte de simulación (ej. 12 semestres hacia el futuro)
     horizonte = 12 
     
-    # Solo programamos las que faltan
+    
     materias_a_programar = [m for m in materias_faltantes if m in G.nodes]
     
     for m in materias_a_programar:
@@ -110,7 +110,7 @@ def resolver_ruta_optima(materias_faltantes, aprobadas, G, max_creditos_semestre
                 # Ejemplo: Estoy en Sem 1 (s=0). Límite = 1+2 = 3. Materias de 4 bloqueadas.
                 # En el siguiente periodo (s=1), ya soy teóricamente Sem 2. Límite = 2+2=4.
                 
-                VENTANA = 2 # Configurable
+                VENTANA = 2 
                 
                 for s in range(horizonte):
                     nivel_futuro = nivel_actual + s
@@ -244,8 +244,11 @@ def generar_plan(opciones: OpcionesSimulacion):
     # Formatear respuesta
     respuesta = []
     for s in sorted(plan.keys()):
+        materias_del_semestre = plan[s]
+        total_creditos = sum(m['creditos'] for m in materias_del_semestre)
         respuesta.append({
             "semestre_relativo": s + 1,
+            "creditos": total_creditos,
             "materias": plan[s]
         })
     return {"plan": respuesta}
