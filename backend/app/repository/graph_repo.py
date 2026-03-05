@@ -91,3 +91,39 @@ class CurricularRepository:
                 "creditos_ruta": record["creditos_ruta"]
             }
         
+    def get_materias_disponibles_pathfinder(self, aprobadas: list, creditos_acumulados: int, plan_id: str = "SIST-2024") -> list:
+        query = """
+        MATCH (m:Materia)-[:PERTENECE_A]->(p:PlanEstudio {id: $plan_id})
+        WHERE NOT m.codigo IN $aprobadas
+        
+        // Extraer Prerrequisitos
+        OPTIONAL MATCH (req:Materia)-[:HABILITA]->(m)
+        WITH m, collect(req.codigo) AS prerrequisitos
+        
+        // Extraer Correquisitos Bidireccionales
+        OPTIONAL MATCH (m)-[:EXIGE_CORREQUISITO]-(coreq:Materia)
+        WITH m, prerrequisitos, collect(coreq.codigo) AS correquisitos
+        
+        WHERE all(r IN prerrequisitos WHERE r IN $aprobadas)
+        AND $creditos_acumulados >= m.min_creditos_req
+        
+        RETURN m.codigo AS codigo, 
+               m.nombre AS nombre, 
+               m.creditos AS creditos, 
+               m.dificultad AS dificultad,
+               m.semestre AS semestre_sugerido,
+               correquisitos
+        """
+        with self.driver.session() as session:
+            result = session.run(query, plan_id=plan_id, aprobadas=aprobadas, creditos_acumulados=creditos_acumulados)
+            return [record.data() for record in result]
+
+    def get_total_materias_plan(self, plan_id: str = "SIST-2024") -> int:
+        """
+        Retorna el número total de vértices (materias) en el DAG del plan de estudios.
+        """
+        query = "MATCH (m:Materia)-[:PERTENECE_A]->(:PlanEstudio {id: $plan_id}) RETURN count(m) AS total"
+        with self.driver.session() as session:
+            result = session.run(query, plan_id=plan_id)
+            return result.single()["total"]
+        

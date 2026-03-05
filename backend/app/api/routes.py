@@ -66,5 +66,35 @@ def analyze_critical_path(request: StudentStateRequest, repo: CurricularReposito
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculando ruta crítica: {str(e)}")
-    
+
+@router.post("/simulate-path")
+def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = Depends(get_optimizer)):
+    """
+    Endpoint $O(S \\times (V+E))$ para proyectar la trayectoria académica completa 
+    hasta la graduación mediante simulación de estados discretos.
+    """
+    try:
+        resultado = optimizer.simular_trayectoria_completa(
+            aprobadas_iniciales=request.aprobadas,
+            creditos_iniciales=request.creditos_acumulados,
+            max_creditos=request.max_creditos,
+            perfil_estudiante=request.perfil_estudiante
+        )
         
+        # Validación de interbloqueo (Deadlock en el DAG)
+        if not resultado.get("trayectoria"):
+            raise HTTPException(
+                status_code=409, 
+                detail="Deadlock detectado: El estudiante no cumple prerrequisitos mínimos para avanzar o la malla tiene ciclos."
+            )
+            
+        return resultado
+        
+    except Exception as e:
+        # Prevención de exposición de trazas internas
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Fallo crítico en el motor de simulación (Pathfinder): {str(e)}"
+        )
+
+
