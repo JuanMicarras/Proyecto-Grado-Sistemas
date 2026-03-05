@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core.database import Neo4jConnection
 from app.repository.graph_repo import CurricularRepository
 from app.services.path_optimizer import PathOptimizer
-
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from app.api.routes import router
 
@@ -73,6 +73,20 @@ app = FastAPI(
     title="Motor de Inferencia Curricular",
     description="API de optimización de grafos dirigidos para mallas académicas.",
     version="1.0.0"
+)
+# 1. Definir lista blanca de orígenes (Origins Strict Allowlist)
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    # "https://tu-dominio-en-produccion.edu.co" -> Agregar en despliegue
+]
+# 2. Configuración del Middleware en la pila ASGI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,         # Aplica la lista blanca (Evitar usar ["*"] en producción)
+    allow_credentials=True,        # Necesario si el frontend envía cookies o tokens de sesión
+    allow_methods=["*"],           # Habilita todos los métodos HTTP (incluyendo el OPTIONS del preflight)
+    allow_headers=["*"],           # Habilita todos los headers (Authorization, Content-Type, etc.)
 )
 
 # Acoplamiento del Router

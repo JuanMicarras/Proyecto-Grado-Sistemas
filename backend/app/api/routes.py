@@ -97,4 +97,58 @@ def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = 
             detail=f"Fallo crítico en el motor de simulación (Pathfinder): {str(e)}"
         )
 
+@router.get("/catalogo")
+def get_catalogo(repo: CurricularRepository = Depends(get_repository)):
+    """
+    Endpoint $O(V)$ para extraer la totalidad de los nodos de la malla curricular.
+    Carga de lectura directa sin procesamiento algorítmico.
+    """
+    try:
+        materias = repo.get_catalogo()
+        return {
+            "metadata": {
+                "plan": "SIST-2024",
+                "total_materias": len(materias)
+            },
+            "catalogo": materias
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Fallo en la extracción de la topología del grafo: {str(e)}"
+        )
+
+@router.post("/disponibles")
+def get_materias_disponibles(request: StudentStateRequest, repo: CurricularRepository = Depends(get_repository)):
+    """
+    Endpoint $O(V + E)$ filtrado por subgrafo condicional. 
+    Evalúa cumplimiento de in-degree (prerrequisitos) y restricciones de semestre (DAG topology).
+    """
+    try:
+        # 1. Consulta al grafo evaluando prerrequisitos, créditos mínimos y ventana semestral
+        materias = repo.get_materias_disponibles(
+            aprobadas=request.aprobadas,
+            creditos_acumulados=request.creditos_acumulados
+        )
+        
+        if not materias:
+            return {"estado": "Sin materias disponibles para el estado actual", "disponibles": []}
+
+        # 2. Extracción de la ventana heurística calculada en la query de Cypher
+        semestre_ancla = materias[0].get("semestre_ancla", 1)
+        
+        return {
+            "estado_proyectado": {
+                "semestre_actual_calculado": semestre_ancla,
+                "limite_ventana_semestral": semestre_ancla + 2,
+                "creditos_base": request.creditos_acumulados
+            },
+            "total_disponibles": len(materias),
+            "disponibles": materias
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error evaluando el subgrafo de disponibilidad: {str(e)}"
+        )
 
