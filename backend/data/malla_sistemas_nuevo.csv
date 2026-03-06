@@ -53,11 +53,11 @@ ELG1306,Electiva Profesional III,3,,10,Obligatoria,,1,0
 INV7363,Proyecto Final,3,IST7122;IIN4319;IGL7080,10,Obligatoria,,1,0
 ELP8090,Electiva Formación Complementaria Libre II,3,,10,Obligatoria,,1,0
 IST4380,Seminario de Carrera II,0,IST4370,10,Obligatoria,,1,0
-IGL1010,Exigencia de Idiomas I,0,,0,Requisito_Idioma,,1,0
-IGL1020,Exigencia de Idiomas II,0,IGL1010,0,Requisito_Idioma,,1,0
-IGL1030,Exigencia de Idiomas III,0,IGL1020,0,Requisito_Idioma,,1,0
-IGL1040,Exigencia de Idiomas IV,0,IGL1030,0,Requisito_Idioma,,1,0
-IGL4010,Exigencia de Idiomas V,0,IGL1040,0,Requisito_Idioma,,1,0
-IGL4040,Exigencia de Idiomas VI,0,IGL4010,0,Requisito_Idioma,,1,0
-IGL7030,Exigencia de Idiomas VII,0,IGL4040,0,Requisito_Idioma,,1,0
-IGL7080,Exigencia de Idiomas VIII,0,IGL7030,0,Requisito_Idioma,,1,0
+IGL1010,Exigencia de Idiomas I,0,,1,Requisito_Idioma,,1,0
+IGL1020,Exigencia de Idiomas II,0,IGL1010,2,Requisito_Idioma,,1,0
+IGL1030,Exigencia de Idiomas III,0,IGL1020,3,Requisito_Idioma,,1,0
+IGL1040,Exigencia de Idiomas IV,0,IGL1030,4,Requisito_Idioma,,1,0
+IGL4010,Exigencia de Idiomas V,0,IGL1040,5,Requisito_Idioma,,1,0
+IGL4040,Exigencia de Idiomas VI,0,IGL4010,6,Requisito_Idioma,,1,0
+IGL7030,Exigencia de Idiomas VII,0,IGL4040,7,Requisito_Idioma,,1,0
+IGL7080,Exigencia de Idiomas VIII,0,IGL7030,8,Requisito_Idioma,,1,0

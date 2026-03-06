@@ -1,6 +1,7 @@
 import pandas as pd
 from neo4j import GraphDatabase
 import os
+from pathlib import Path
 
 class CurricularGraphBuilder:
     def __init__(self, uri, user, password):
@@ -58,7 +59,11 @@ class CurricularGraphBuilder:
             # A. Esquema de Base de Datos (Índices y Restricciones)
             session.run("CREATE CONSTRAINT materia_codigo IF NOT EXISTS FOR (m:Materia) REQUIRE m.codigo IS UNIQUE")
             session.run("CREATE CONSTRAINT plan_id IF NOT EXISTS FOR (p:PlanEstudio) REQUIRE p.id IS UNIQUE")
-
+            #Registrar el tipo de relación en el diccionario de Neo4j (Dummy Insert)
+            session.run("""
+                CREATE (a:Dummy)-[r:EXIGE_CORREQUISITO]->(b:Dummy)
+                DELETE a, r, b
+            """)
             # B. Crear Nodo Raíz (Plan de Estudio)
             session.run("""
                 MERGE (p:PlanEstudio {id: $plan_id})
@@ -109,10 +114,21 @@ if __name__ == "__main__":
     USER = "neo4j"
     PASSWORD = "tesis123" # Inyectar por variables de entorno en Producción
     
+    # 1. Obtiene la ruta del archivo actual: backend/scripts/graph_builder.py
+    # 2. .parent sube a 'scripts/'
+    # 3. .parent sube a 'backend/' (la raíz de tu proyecto)
+    BASE_DIR = Path(__file__).resolve().parent.parent
     # Resolver ruta absoluta para evitar problemas con CWD
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    ruta_csv = os.path.join(base_dir, 'malla_sistemas_nuevo.csv')
-    
+    # 4. Construye la ruta hacia la carpeta data
+    # Esto genera automáticamente: C:\Users\juanm\...\backend\data\malla_sistemas_nuevo.csv
+    ruta_csv = BASE_DIR / "data" / "malla_sistemas_nuevo.csv"
+
+    # 5. Ahora SÍ puedes usar .exists() porque ruta_csv es un Objeto Path
+    if not ruta_csv.exists():
+        print(f"ERROR: No se encontró el archivo en: {ruta_csv}")
+        # Opcional: listar qué hay en la carpeta data para depurar
+        exit(1)
+    print(f"Archivo encontrado exitosamente: {ruta_csv}")
     builder = CurricularGraphBuilder(URI, USER, PASSWORD)
     builder.build_graph(ruta_csv)
     builder.close()
