@@ -1,14 +1,25 @@
 // src/components/GraduationTimeline.tsx
-import type { SimulatePathResponse } from '../types/academic';
+import type { MateriaCatalogo, SimulatePathResponse } from '../types/academic';
 import { SubjectCard } from './SubjectCard';
 
 interface Props {
   data: SimulatePathResponse;
+  catalogo: MateriaCatalogo[];
   onReset: () => void; // Función para volver al formulario
 }
 
-export function GraduationTimeline({ data, onReset }: Props) {
+export function GraduationTimeline({ data, catalogo, onReset }: Props) {
   const { resumen, trayectoria } = data;
+
+  const getSemestreAncla = (materiasSimuladas: typeof trayectoria[0]['materias']) => {
+    const semestresOriginales = materiasSimuladas.map(materiaSim => {
+      const materiaReal = catalogo.find(c => c.codigo === materiaSim.codigo);
+      return materiaReal?.semestre || 99; // Si por alguna razón no la encuentra, evitamos que rompa el Math.min
+    });
+    
+    // Math.min extrae el número más pequeño del array de semestres
+    return Math.min(...semestresOriginales);
+  };
 
   return (
     <section className="w-full max-w-4xl mx-auto flex flex-col gap-6 p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -44,25 +55,35 @@ export function GraduationTimeline({ data, onReset }: Props) {
 
       {/* GRID DE SEMESTRES */}
       <div className="flex flex-col gap-8 mt-4">
-        {trayectoria.map((semestre) => (
-          <article key={semestre.semestre_simulado} className="flex flex-col gap-4">
-            <header className="flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-lg">
-              <h3 className="text-base font-bold">
-                Semestre {semestre.semestre_simulado}
-              </h3>
-              <span className="text-sm font-medium bg-slate-700 px-3 py-1 rounded-full">
-                {semestre.creditos_matriculados} créditos inscritos
-              </span>
-            </header>
+        {trayectoria.map((semestre, index) => {
+          // Calculamos el semestre ancla dinámicamente para este bloque
+          const semestreAncla = getSemestreAncla(semestre.materias);
+          
+          return (
+            <article key={semestre.semestre_simulado} className="flex flex-col gap-4">
+              <header className="flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-lg">
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-base font-bold">
+                    {/* AQUI ESTÁ LA MAGIA: Mostramos el semestre calculado */}
+                    Semestre {semestreAncla !== 99 ? semestreAncla : semestre.semestre_simulado}
+                  </h3>
+                  <span className="text-xs text-slate-400 font-normal">
+                    (Etapa de proyección {index + 1})
+                  </span>
+                </div>
+                <span className="text-sm font-medium bg-slate-700 px-3 py-1 rounded-full">
+                  {semestre.creditos_matriculados} cr.
+                </span>
+              </header>
 
-            {/* MENTORÍA TÉCNICA: Aquí brilla el Mobile-First. 1 columna en móvil, 2 en tablet, 3 en escritorio */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {semestre.materias.map((materia) => (
-                <SubjectCard key={materia.codigo} materia={materia} />
-              ))}
-            </div>
-          </article>
-        ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {semestre.materias.map((materia) => (
+                  <SubjectCard key={materia.codigo} materia={materia} />
+                ))}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

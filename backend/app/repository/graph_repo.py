@@ -112,6 +112,7 @@ class CurricularRepository:
                m.creditos AS creditos, 
                m.dificultad AS dificultad,
                m.semestre AS semestre_sugerido,
+               m.tipo AS tipo,
                correquisitos
         """
         with self.driver.session() as session:
@@ -172,6 +173,7 @@ class CurricularRepository:
             m.creditos AS creditos, 
             m.semestre AS semestre,
             m.dificultad AS dificultad,
+            m.tipo AS tipo,
             semestre_ancla
         ORDER BY m.semestre ASC
         """

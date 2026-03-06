@@ -16,10 +16,10 @@ class PathOptimizer:
             return {"estado": "Sin materias disponibles o carrera finalizada", "seleccion": []}
         
         materias_regulares = [m for m in disponibles_crudo if m['semestre_sugerido'] > 0]
-        semestre_actual = min(m['semestre_sugerido'] for m in materias_regulares) if materias_regulares else 0
+        semestre_actual = min(m['semestre_sugerido'] for m in disponibles_crudo if m['semestre_sugerido'] > 0)
         ventana_maxima = semestre_actual + 2
 
-        disponibles = [m for m in disponibles_crudo if m['semestre_sugerido'] <= ventana_maxima or m['semestre_sugerido'] == 0]
+        disponibles = [m for m in disponibles_crudo if m['semestre_sugerido'] <= ventana_maxima or m.get('tipo') == 'Requisito_Idioma']
         if not disponibles: disponibles = disponibles_crudo # Fallback preventivo
 
         ruta_data = self.repo.get_ruta_critica_dinamica(aprobadas, plan_id)

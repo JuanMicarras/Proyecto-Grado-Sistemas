@@ -73,6 +73,32 @@ export default function App() {
       };
     });
   };
+  
+  const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
+    const codigosSemestre = materiasDelSemestre.map(m => m.codigo);
+    
+    // Verificamos si TODAS las materias de este grupo ya están en el array de aprobadas
+    const estanTodasSeleccionadas = codigosSemestre.every(codigo => 
+      payload.aprobadas.includes(codigo)
+    );
+
+    if (estanTodasSeleccionadas) {
+      // Si ya están todas, las quitamos filtrando las que NO pertenecen a este semestre
+      setPayload(prev => ({
+        ...prev,
+        aprobadas: prev.aprobadas.filter(c => !codigosSemestre.includes(c))
+      }));
+    } else {
+      // Si falta alguna, usamos un Set (Conjunto) para unir los arrays sin dejar duplicados
+      setPayload(prev => {
+        const unionSinDuplicados = new Set([...prev.aprobadas, ...codigosSemestre]);
+        return {
+          ...prev,
+          aprobadas: Array.from(unionSinDuplicados)
+        };
+      });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,11 +106,12 @@ export default function App() {
   };
   // MENTORÍA TÉCNICA: RENDERIZADO CONDICIONAL DE VISTAS
   // Si tenemos datos de la mutación, reemplazamos la pantalla entera.
-  if (simulateMutation.isSuccess && simulateMutation.data) {
+  if (simulateMutation.isSuccess && simulateMutation.data && catalogoData) {
     return (
       <main className="min-h-screen bg-slate-50 py-8">
         <GraduationTimeline 
           data={simulateMutation.data} 
+          catalogo={catalogoData.catalogo}
           onReset={() => simulateMutation.reset()} // Esto limpia el estado y vuelve al formulario
         />
       </main>
@@ -140,11 +167,31 @@ export default function App() {
           
           {/* RENDERIZADO DINÁMICO DEL CATÁLOGO REAL */}
           <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-            {semestresAgrupados.map((grupo) => (
-              <div key={grupo.semestre} className="flex flex-col gap-2">
-                <h3 className="text-sm font-bold text-slate-700 border-b pb-1 sticky top-0 bg-white z-10">
-                  Semestre {grupo.semestre}
-                </h3>
+            {semestresAgrupados.map((grupo) => {
+              // Calculamos aquí mismo si todas están seleccionadas para saber qué texto mostrar en el botón
+              const codigosGrupo = grupo.materias.map(m => m.codigo);
+              const todasSeleccionadas = codigosGrupo.every(c => payload.aprobadas.includes(c));
+
+              return (
+                <div key={grupo.semestre} className="flex flex-col gap-2">
+                  
+                  {/* NUEVO HEADER CON BOTÓN ACCESIBLE Y ELEGANTE */}
+                  <div className="flex justify-between items-end border-b pb-1 sticky top-0 bg-white z-10 pt-1">
+                    <h3 className="text-sm font-bold text-slate-700">
+                      Semestre {grupo.semestre}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => toggleSemestreCompleto(grupo.materias)}
+                      className={`text-[10px] sm:text-xs font-bold px-2 py-1 rounded transition-colors ${
+                        todasSeleccionadas 
+                          ? 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' 
+                          : 'text-blue-600 hover:bg-blue-50'
+                      }`}
+                    >
+                      {todasSeleccionadas ? 'Limpiar semestre' : 'Seleccionar todas'}
+                    </button>
+                  </div>
                 
                 <div className="flex flex-wrap gap-2 mt-1">
                   {grupo.materias.map((materia) => {
@@ -176,7 +223,8 @@ export default function App() {
                   })}
                 </div>
               </div>
-            ))}
+              );
+              })}
           </div>
 
           <hr className="border-slate-100" />
