@@ -100,6 +100,21 @@ export default function App() {
     }
   };
 
+  const aprobarHastaSemestre = (semestreLimite: number) => {
+    if (!catalogoData?.catalogo) return;
+
+    // Filtramos las materias hasta el semestre elegido
+    const materiasAAprobar = catalogoData.catalogo
+      .filter((materia) => (materia.semestre || 0) <= semestreLimite)
+      .map((m) => m.codigo);
+
+    setPayload((prev) => ({
+      ...prev,
+      // Reemplazamos el array completo con las nuevas materias calculadas
+      aprobadas: materiasAAprobar
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     simulateMutation.mutate({ ...payload, creditos_acumulados: creditosAcumulados });
@@ -164,6 +179,30 @@ export default function App() {
         </header>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+          
+          {/* NUEVA HERRAMIENTA: LLENADO RÁPIDO */}
+          <div className="flex items-center justify-between bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+            <span className="text-xs md:text-sm font-bold text-blue-800 flex items-center gap-2">
+              ⚡ Llenado rápido
+            </span>
+            <select
+              className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+              onChange={(e) => {
+                const valor = Number(e.target.value);
+                if (valor > 0) aprobarHastaSemestre(valor);
+                // Reseteamos el select visualmente para que actúe como un botón de acción
+                e.target.value = ""; 
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Aprobar hasta semestre...</option>
+              {semestresAgrupados.map((grupo) => (
+                <option key={grupo.semestre} value={grupo.semestre}>
+                  Todo hasta Semestre {grupo.semestre}
+                </option>
+              ))}
+            </select>
+          </div>
           
           {/* RENDERIZADO DINÁMICO DEL CATÁLOGO REAL */}
           <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
