@@ -10,11 +10,18 @@ class PathOptimizer:
         curricular y respetando la restricción de créditos máximos.
         """
         # 1. Obtener espacio de búsqueda válido (O(1) I/O de red, delegando el DAG a la BD)
-        disponibles = self.repo.get_materias_disponibles(aprobadas, creditos_acumulados, plan_id)
+        disponibles_crudo = self.repo.get_materias_disponibles_pathfinder(aprobadas, creditos_acumulados, plan_id)
 
-        if not disponibles:
+        if not disponibles_crudo:
             return {"estado": "Sin materias disponibles o carrera finalizada", "seleccion": []}
         
+        materias_regulares = [m for m in disponibles_crudo if m['semestre_sugerido'] > 0]
+        semestre_actual = min(m['semestre_sugerido'] for m in materias_regulares) if materias_regulares else 0
+        ventana_maxima = semestre_actual + 2
+
+        disponibles = [m for m in disponibles_crudo if m['semestre_sugerido'] <= ventana_maxima or m['semestre_sugerido'] == 0]
+        if not disponibles: disponibles = disponibles_crudo # Fallback preventivo
+
         ruta_data = self.repo.get_ruta_critica_dinamica(aprobadas, plan_id)
         # Convertir a Set de Python para lookups O(1)
         codigos_criticos = {nodo["codigo"] for nodo in ruta_data.get("ruta", [])}
@@ -52,18 +59,36 @@ class PathOptimizer:
         seleccion = []
         carga_creditos_actual = 0
         carga_dificultad_actual = 0
+        procesados = set()
+        mapa_lookup = {m['codigo']: m for m in disponibles}
 
-        for materia in disponibles:
-            if carga_creditos_actual + materia['creditos'] <= max_creditos:
-                seleccion.append({
-                    "codigo": materia['codigo'],
-                    "nombre": materia['nombre'],
-                    "creditos": materia['creditos'],
-                    "dificultad": materia['dificultad']
-                })
-                carga_creditos_actual += materia['creditos']
-                carga_dificultad_actual += materia['dificultad']
-
+        for m in disponibles:
+            cod = m['codigo']
+            if cod in procesados: continue
+            
+            # Extraer correquisitos pendientes de aprobación
+            coreqs_pendientes = [c for c in m['correquisitos'] if c not in aprobadas]
+            
+            # Si un correquisito no está disponible en este semestre, se omite el bloque entero
+            if not all(c in mapa_lookup for c in coreqs_pendientes): continue 
+            # Construir bloque atómico
+            bloque_materias = [m] + [mapa_lookup[c] for c in coreqs_pendientes]
+            creditos_bloque = sum(mat['creditos'] for mat in bloque_materias)
+            
+            if carga_creditos_actual + creditos_bloque <= max_creditos:
+                for mat in bloque_materias:
+                    if mat['codigo'] not in procesados:
+                        seleccion.append({
+                            "codigo": mat['codigo'],
+                            "nombre": mat['nombre'],
+                            "creditos": mat['creditos'],
+                            "dificultad": mat['dificultad'],
+                            "es_critica": mat['codigo'] in codigos_criticos
+                        })
+                        procesados.add(mat['codigo'])
+                        carga_creditos_actual += mat['creditos']
+                        carga_dificultad_actual += mat['dificultad']
+ 
         return {
             "estadisticas": {
                 "total_creditos": carga_creditos_actual,
@@ -79,102 +104,35 @@ class PathOptimizer:
         estado_creditos = creditos_iniciales
         trayectoria_proyectada = []
         total_materias_plan = self.repo.get_total_materias_plan(plan_id)
-        # Pesos Heurísticos
-        w_critico = 50.0
-        if perfil_estudiante == "agresivo": w_semestre, w_dificultad = -10.0, 2.0 
-        elif perfil_estudiante == "suave": w_semestre, w_dificultad = -10.0, -2.0
-        else: w_semestre, w_dificultad = -10.0, 0.0
 
         while True:
-            # 1. Lectura de Estado Actual (DB)
-            disponibles_raw = self.repo.get_materias_disponibles_pathfinder(list(estado_aprobadas), estado_creditos, plan_id)
-            
-            if not disponibles_raw:
-                break # Condición de Parada: Grafo completado o Deadlock absoluto
-                
-            # --- REGLA 1: Ventana de Semestres (N + 2) ---
-            # El semestre actual N es exactamente el mínimo semestre sugerido del pool de desbloqueadas.
-            materias_regulares = [m for m in disponibles_raw if m['semestre_sugerido'] > 0]
-            
-            if materias_regulares:
-                semestre_actual = min(m['semestre_sugerido'] for m in materias_regulares)
-            else:
-                semestre_actual = 0 # Fallback si solo le faltan idiomas
-                
-            ventana_maxima = semestre_actual + 2
-            
-            # Permitir materias que estén en la ventana O que sean transversales (semestre 0)
-            disponibles = [
-                m for m in disponibles_raw 
-                if m['semestre_sugerido'] <= ventana_maxima or m['semestre_sugerido'] == 0
-            ]
-            
-            if not disponibles:
-                disponibles = disponibles_raw # Fallback preventivo estructural
+            # 1. Delegar toda la lógica matemática al generador de semestre
+            resultado_semestre = self.generar_semestre_optimo(
+                aprobadas=list(estado_aprobadas),
+                creditos_acumulados=estado_creditos,
+                max_creditos=max_creditos,
+                perfil_estudiante=perfil_estudiante,
+                plan_id=plan_id
+            )
 
-            # 2. Inyección de Ruta Crítica Dinámica
-            ruta_data = self.repo.get_ruta_critica_dinamica(list(estado_aprobadas), plan_id)
-            codigos_criticos = {nodo["codigo"] for nodo in ruta_data.get("ruta", [])}
-            
-            # 3. Función Fitness
-            for m in disponibles:
-                score_retraso = w_semestre * m['semestre_sugerido']
-                score_dificultad = w_dificultad * m['dificultad']
-                score_ruta = w_critico if m['codigo'] in codigos_criticos else 0.0
-                densidad = m['creditos'] if m['creditos'] > 0 else 1 
-                
-                m['priority_score'] = (score_retraso + score_dificultad + score_ruta) / densidad
+            # 2. Condición de Parada: El empaquetador no pudo meter ninguna materia (Grafo vacío o Deadlock de créditos)
+            materias_seleccionadas = resultado_semestre.get("seleccion", [])
+            if not materias_seleccionadas:
+                break
 
-            disponibles.sort(key=lambda x: x['priority_score'], reverse=True)
-
-            # --- REGLA 2: Knapsack Atómico (Correquisitos) ---
-            seleccion_semestre = []
-            carga_actual = 0
-            procesados = set()
-            mapa_lookup = {m['codigo']: m for m in disponibles}
-            
-            for m in disponibles:
-                cod = m['codigo']
-                if cod in procesados:
-                    continue
-                    
-                # Identificar corequisitos pendientes (que no han sido aprobados antes)
-                coreqs_pendientes = [c for c in m['correquisitos'] if c not in estado_aprobadas]
-                
-                # Regla Estricta: Si un corequisito no está disponible en este semestre (por ventana N+2 o prerrequisito faltante), abortar el bloque
-                if not all(c in mapa_lookup for c in coreqs_pendientes):
-                    continue 
-
-                # Construir el bloque atómico
-                bloque_materias = [m] + [mapa_lookup[c] for c in coreqs_pendientes]
-                creditos_bloque = sum(mat['creditos'] for mat in bloque_materias)
-                
-                if carga_actual + creditos_bloque <= max_creditos:
-                    for mat in bloque_materias:
-                        if mat['codigo'] not in procesados:
-                            seleccion_semestre.append({
-                                "codigo": mat['codigo'],
-                                "nombre": mat['nombre'],
-                                "creditos": mat['creditos'],
-                                "es_critica": mat['codigo'] in codigos_criticos
-                            })
-                            procesados.add(mat['codigo'])
-                            carga_actual += mat['creditos']
-                            
-            if not seleccion_semestre:
-                break # Evitar loop infinito si ninguna materia o bloque cabe (Deadlock de créditos)
-
-            # --- REGLA 3: Mutación de Estado (Acumulación) ---
+            # 3. Ensamblar output
             trayectoria_proyectada.append({
                 "semestre_simulado": len(trayectoria_proyectada) + 1,
-                "creditos_matriculados": carga_actual,
-                "materias": seleccion_semestre
+                "creditos_matriculados": resultado_semestre["estadisticas"]["total_creditos"],
+                "materias": materias_seleccionadas
             })
             
-            # Sumar al estado para la iteración del próximo semestre
-            estado_aprobadas.update(procesados)
-            estado_creditos += carga_actual
-            # --- VALIDACIÓN DE COMPLETITUD (NUEVO) ---
+            # 4. Mutación de Estado (Simulación Estocástica determinista)
+            nuevos_codigos = {m["codigo"] for m in materias_seleccionadas}
+            estado_aprobadas.update(nuevos_codigos)
+            estado_creditos += resultado_semestre["estadisticas"]["total_creditos"]
+
+        # Validación final de integridad
         materias_aprobadas_final = len(estado_aprobadas)
         logro_graduarse = materias_aprobadas_final == total_materias_plan
 
