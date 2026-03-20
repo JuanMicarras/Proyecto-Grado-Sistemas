@@ -20,14 +20,15 @@ def get_optimizer() -> PathOptimizer:
 @router.post("/optimize-semester")
 def optimize_semester(request: StudentStateRequest, optimizer: PathOptimizer = Depends(get_optimizer)):
     """
-    Endpoint $O(N \log N)$ para calcular la trayectoria óptima del próximo semestre.
+    Endpoint O(N \log N) para calcular la trayectoria óptima del próximo semestre.
     """
     try:
         resultado = optimizer.generar_semestre_optimo(
             aprobadas=request.aprobadas,
             creditos_acumulados=request.creditos_acumulados,
             max_creditos=request.max_creditos,
-            perfil_estudiante=request.perfil_estudiante
+            perfil_estudiante=request.perfil_estudiante,
+            materias_prioritarias=request.materias_prioritarias
         )
         return resultado
     except Exception as e:
@@ -48,7 +49,7 @@ def get_repository() -> CurricularRepository:
 @router.post("/critical-path")
 def analyze_critical_path(request: StudentStateRequest, repo: CurricularRepository = Depends(get_repository)):
     """
-    Endpoint $O(V+E)$ en DAG para identificar la cadena de prerrequisitos más larga 
+    Endpoint O(V+E) en DAG para identificar la cadena de prerrequisitos más larga 
     que bloquea la graduación del estudiante.
     """
     try:
@@ -78,7 +79,8 @@ def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = 
             aprobadas_iniciales=request.aprobadas,
             creditos_iniciales=request.creditos_acumulados,
             max_creditos=request.max_creditos,
-            perfil_estudiante=request.perfil_estudiante
+            perfil_estudiante=request.perfil_estudiante,
+            materias_prioritarias=request.materias_prioritarias
         )
         
         # Validación de interbloqueo (Deadlock en el DAG)
@@ -100,7 +102,7 @@ def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = 
 @router.get("/catalogo")
 def get_catalogo(repo: CurricularRepository = Depends(get_repository)):
     """
-    Endpoint $O(V)$ para extraer la totalidad de los nodos de la malla curricular.
+    Endpoint O(V) para extraer la totalidad de los nodos de la malla curricular.
     Carga de lectura directa sin procesamiento algorítmico.
     """
     try:
@@ -121,7 +123,7 @@ def get_catalogo(repo: CurricularRepository = Depends(get_repository)):
 @router.post("/disponibles")
 def get_materias_disponibles(request: StudentStateRequest, repo: CurricularRepository = Depends(get_repository)):
     """
-    Endpoint $O(V + E)$ filtrado por subgrafo condicional. 
+    Endpoint O(V + E) filtrado por subgrafo condicional. 
     Evalúa cumplimiento de in-degree (prerrequisitos) y restricciones de semestre (DAG topology).
     """
     try:

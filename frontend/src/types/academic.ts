@@ -5,6 +5,7 @@ export interface SimulationPayload {
   creditos_acumulados: number;
   max_creditos: number;
   perfil_estudiante: 'balanceado' | 'agresivo' | 'suave';
+  materias_prioritarias: string[];
 }
 
 export interface Materia {

@@ -3,6 +3,10 @@ class CurricularRepository:
         self.driver = driver
 
     def get_materias_disponibles(self, aprobadas: list, creditos_acumulados: int, plan_id: str = "SIST-2024") -> list:
+        """
+        USO: Endpoint /optimize-semester (Táctico).
+        Lógica flexible: Retorna todo lo lógicamente desbloqueado sin forzar N+2 en BD.
+        """
         query = """
         MATCH (m:Materia)-[:PERTENECE_A]->(p:PlanEstudio {id: $plan_id})
         WHERE NOT m.codigo IN $aprobadas
@@ -23,7 +27,7 @@ class CurricularRepository:
         with self.driver.session() as session:
             result = session.run(query, plan_id=plan_id, aprobadas=aprobadas, creditos_acumulados=creditos_acumulados)
             return [record.data() for record in result]
-
+        
     def get_ruta_critica_absoluta(self, plan_id: str = "SIST-2024") -> dict:
         """
         Calcula el Longest Path en el DAG para identificar el cuello de botella del pensum.
@@ -118,7 +122,7 @@ class CurricularRepository:
         with self.driver.session() as session:
             result = session.run(query, plan_id=plan_id, aprobadas=aprobadas, creditos_acumulados=creditos_acumulados)
             return [record.data() for record in result]
-
+    
     def get_total_materias_plan(self, plan_id: str = "SIST-2024") -> int:
         """
         Retorna el número total de vértices (materias) en el DAG del plan de estudios.
@@ -147,37 +151,3 @@ class CurricularRepository:
             result = session.run(query, plan_id=plan_id)
             return [record.data() for record in result]
 
-    def get_materias_disponibles(self, aprobadas: list, creditos_acumulados: int, plan_id: str = "SIST-2024") -> list:
-        query = """
-        // 1. Determinar el semestre actual (mínimo semestre no aprobado > 0)
-        MATCH (actual:Materia)-[:PERTENECE_A]->(p:PlanEstudio {id: $plan_id})
-        WHERE NOT actual.codigo IN $aprobadas AND actual.semestre > 0
-        WITH min(actual.semestre) AS semestre_ancla, p
-        
-        // 2. Buscar candidatas
-        MATCH (m:Materia)-[:PERTENECE_A]->(p)
-        WHERE NOT m.codigo IN $aprobadas
-        
-        // 3. Filtro de Ventana de Semestre (Solo si m.semestre > 0)
-        // Si la materia es semestre 0 (idiomas), pasa el filtro de ventana
-        AND (m.semestre = 0 OR m.semestre <= (semestre_ancla + 2))
-        
-        // 4. Verificación de Prerrequisitos y Créditos Mínimos
-        OPTIONAL MATCH (req:Materia)-[:HABILITA]->(m)
-        WITH m, semestre_ancla, collect(req.codigo) AS prerrequisitos
-        WHERE all(r IN prerrequisitos WHERE r IN $aprobadas)
-        AND $creditos_acumulados >= m.min_creditos_req
-        
-        RETURN m.codigo AS codigo, 
-            m.nombre AS nombre, 
-            m.creditos AS creditos, 
-            m.semestre AS semestre,
-            m.dificultad AS dificultad,
-            m.tipo AS tipo,
-            semestre_ancla
-        ORDER BY m.semestre ASC
-        """
-        with self.driver.session() as session:
-            result = session.run(query, plan_id=plan_id, aprobadas=aprobadas, creditos_acumulados=creditos_acumulados)
-            return [record.data() for record in result]
-    
