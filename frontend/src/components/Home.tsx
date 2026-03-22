@@ -4,14 +4,10 @@ import { api } from "../api/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { GraduationTimeline } from "./GraduationTimeline";
 import { useNavigate } from "react-router-dom";
+import { useAcademicStore } from "../store/academicStore";
 
 export function Home() {
-  const [payload, setPayload] = useState({
-    aprobadas: [] as string[],
-    max_creditos: 17,
-    perfil_estudiante: "balanceado" as "suave" | "balanceado" | "agresivo",
-    materias_prioritarias: [] as string[],
-  });
+  const { payload, toggleMateria, updatePayload } = useAcademicStore();
 
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,36 +48,28 @@ export function Home() {
   ]);
 
   const togglePrioridad = (codigo: string) => {
-    setPayload((prev) => {
-      const yaEsta = prev.materias_prioritarias.includes(codigo);
+    const yaEsta = payload.materias_prioritarias.includes(codigo);
 
-      // Si ya está, la quitamos
-      if (yaEsta) {
-        return {
-          ...prev,
-          materias_prioritarias: prev.materias_prioritarias.filter(
-            (c) => c !== codigo,
-          ),
-        };
-      }
+    if (yaEsta) {
+      updatePayload({
+        materias_prioritarias: payload.materias_prioritarias.filter(
+          (c) => c !== codigo,
+        ),
+      });
+      return;
+    }
 
-      // Validamos el límite de UX (Máximo 5)
-      if (prev.materias_prioritarias.length >= 5) {
-        // En una app real usaríamos un Toast, aquí usamos una alerta nativa por simplicidad del prototipo
-        alert(
-          "Para no sobrecargar el algoritmo, puedes elegir un máximo de 5 materias prioritarias.",
-        );
-        return prev;
-      }
+    if (payload.materias_prioritarias.length >= 3) {
+      alert(
+        "Para no sobrecargar el algoritmo, puedes elegir un máximo de 3 materias prioritarias.",
+      );
+      return;
+    }
 
-      // Si pasa validaciones, la agregamos
-      return {
-        ...prev,
-        materias_prioritarias: [...prev.materias_prioritarias, codigo],
-      };
+    updatePayload({
+      materias_prioritarias: [...payload.materias_prioritarias, codigo],
     });
-
-    setSearchTerm(""); // Limpiamos el buscador para una mejor UX tras seleccionar
+    setSearchTerm("");
   };
 
   // 2. TRANSFORMACIÓN DE DATOS (Agrupación por Semestre)
@@ -132,43 +120,26 @@ export function Home() {
     },
   });
 
-  const toggleMateria = (codigo: string) => {
-    setPayload((prev) => {
-      const yaAprobada = prev.aprobadas.includes(codigo);
-      return {
-        ...prev,
-        aprobadas: yaAprobada
-          ? prev.aprobadas.filter((c) => c !== codigo)
-          : [...prev.aprobadas, codigo],
-      };
-    });
-  };
 
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
-
-    // Verificamos si TODAS las materias de este grupo ya están en el array de aprobadas
     const estanTodasSeleccionadas = codigosSemestre.every((codigo) =>
       payload.aprobadas.includes(codigo),
     );
 
     if (estanTodasSeleccionadas) {
-      // Si ya están todas, las quitamos filtrando las que NO pertenecen a este semestre
-      setPayload((prev) => ({
-        ...prev,
-        aprobadas: prev.aprobadas.filter((c) => !codigosSemestre.includes(c)),
-      }));
+      updatePayload({
+        aprobadas: payload.aprobadas.filter(
+          (c) => !codigosSemestre.includes(c),
+        ),
+      });
     } else {
-      // Si falta alguna, usamos un Set (Conjunto) para unir los arrays sin dejar duplicados
-      setPayload((prev) => {
-        const unionSinDuplicados = new Set([
-          ...prev.aprobadas,
-          ...codigosSemestre,
-        ]);
-        return {
-          ...prev,
-          aprobadas: Array.from(unionSinDuplicados),
-        };
+      const unionSinDuplicados = new Set([
+        ...payload.aprobadas,
+        ...codigosSemestre,
+      ]);
+      updatePayload({
+        aprobadas: Array.from(unionSinDuplicados),
       });
     }
   };
@@ -176,16 +147,11 @@ export function Home() {
   const aprobarHastaSemestre = (semestreLimite: number) => {
     if (!catalogoData?.catalogo) return;
 
-    // Filtramos las materias hasta el semestre elegido
     const materiasAAprobar = catalogoData.catalogo
       .filter((materia) => (materia.semestre || 0) <= semestreLimite)
       .map((m) => m.codigo);
 
-    setPayload((prev) => ({
-      ...prev,
-      // Reemplazamos el array completo con las nuevas materias calculadas
-      aprobadas: materiasAAprobar,
-    }));
+    updatePayload({ aprobadas: materiasAAprobar });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -250,7 +216,6 @@ export function Home() {
           </div>
 
           <div className="flex gap-3">
-
             {/* NUEVO BOTÓN PARA IR AL GRAFO EN PANTALLA COMPLETA */}
             <button
               onClick={() => navigate("/malla")}
@@ -269,7 +234,6 @@ export function Home() {
               </span>
             </div>
           </div>
-          
         </header>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
@@ -390,10 +354,7 @@ export function Home() {
                 type="number"
                 value={payload.max_creditos}
                 onChange={(e) =>
-                  setPayload({
-                    ...payload,
-                    max_creditos: Number(e.target.value),
-                  })
+                  updatePayload({ max_creditos: Number(e.target.value) })
                 }
                 className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
@@ -410,10 +371,7 @@ export function Home() {
                 id="perfil"
                 value={payload.perfil_estudiante}
                 onChange={(e) =>
-                  setPayload({
-                    ...payload,
-                    perfil_estudiante: e.target.value as any,
-                  })
+                  updatePayload({ perfil_estudiante: e.target.value as any })
                 }
                 className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-all"
               >

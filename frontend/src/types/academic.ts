@@ -1,4 +1,4 @@
-// src/types/academic.ts
+
 
 export interface SimulationPayload {
   aprobadas: string[];
