@@ -154,3 +154,24 @@ def get_materias_disponibles(request: StudentStateRequest, repo: CurricularRepos
             detail=f"Error evaluando el subgrafo de disponibilidad: {str(e)}"
         )
 
+@router.get("/malla-visual")
+def get_malla_visual(repo: CurricularRepository = Depends(get_repository)):
+    """
+    Endpoint O(V+E) que retorna la estructura topológica del plan de estudios
+    formateada para renderizado de grafos en UI (Nodos y Edges).
+    """
+    try:
+        grafo_data = repo.get_malla_visual()
+        return {
+            "metadata": {
+                "total_nodos": len(grafo_data["nodes"]),
+                "total_aristas": len(grafo_data["edges"])
+            },
+            "grafo": grafo_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error extrayendo topología visual: {str(e)}"
+        )
+    

@@ -151,3 +151,96 @@ class CurricularRepository:
             result = session.run(query, plan_id=plan_id)
             return [record.data() for record in result]
 
+    def get_malla_visual(self, plan_id: str = "SIST-2024") -> dict:
+        """
+        Extrae la topología completa del DAG estructurada para librerías 
+        de renderizado visual en el Frontend (Nodos y Aristas) y la ordena heurísticamente
+        para simular los 'carriles visuales'.
+        """
+        query = """
+        MATCH (m:Materia)-[:PERTENECE_A]->(p:PlanEstudio {id: $plan_id})
+        // Buscamos opcionalmente qué materias habilitan a 'm'
+        OPTIONAL MATCH (pre:Materia)-[:HABILITA]->(m)
+        RETURN m.codigo AS id, 
+               m.nombre AS label, 
+               m.semestre AS nivel,
+               m.tipo AS tipo,
+               m.creditos AS creditos,
+               collect(pre.codigo) AS prerrequisitos
+        """
+        with self.driver.session() as session:
+            result = session.run(query, plan_id=plan_id)
+            
+            nodes = []
+            edges = []
+            
+            for record in result:
+                target_id = record["id"]
+                
+                # 1. Construir el Nodo
+                nodes.append({
+                    "id": target_id,
+                    "data": { 
+                        "label": record["label"],
+                        "nivel": record["nivel"],
+                        "tipo": record["tipo"],
+                        "creditos": record["creditos"]
+                    }
+                })
+                
+                # 2. Construir las Aristas (Edges)
+                for pre_req in record["prerrequisitos"]:
+                    if pre_req is not None:
+                        edges.append({
+                            "id": f"e-{pre_req}-{target_id}",
+                            "source": pre_req,
+                            "target": target_id,
+                            "type": "smoothstep", # Sugerencia visual para el front
+                            "animated": True      # Opcional para mostrar flujo
+                        })
+            def get_prioridad_area(codigo: str) -> int:
+                # prefijo = codigo[:3]
+                # jerarquia = {
+                #     "MAT": 1,  # Matemáticas (Arriba)
+                #     "FIS": 2,  # Física
+                #     "EST": 3,  # Estadística
+                #     "IST": 4,  # Sistemas / Disciplinares (Centro)
+                #     "INV": 5,  # Proyectos / Investigación
+                #     "IIN": 6,  # Exámenes Comprensivos
+                #     "CAS": 7,  # Competencias Comunicativas
+                #     "ELG": 8,  # Electivas
+                #     "ELP": 9,  # Electivas Libres
+                #     "IGL": 10, # Idiomas 
+                # }
+                prefijo = codigo
+                
+                jerarquia = {    
+                    "MAT1031": 1, "MAT1101": 2, "IST0010": 3, "IST2088": 4, "CAS3020": 5, "IGL1010": 6,
+                    "ELG1140": 1, "MAT1111": 2, "FIS1023": 3, "IST2089": 4, "CAS3030": 5, "IGL1020": 6,
+                    "ELG1130": 1, "MAT1121": 2, "FIS1043": 3, "IST4021": 4, "IST2110": 5, "IGL1030": 6,
+                    "ELG1150": 1, "MAT4011": 2, "FIS1033": 3, "IST4031": 4, "MAT4021": 5, "IGL1040": 6,
+                    "ELG0007": 1, "EST7042": 2, "IST4310": 3, "IST4330": 4, "IST7072": 5, "IGL4010": 6, "IIN4310": 7, "IST4370": 8,
+                    "ELG0008": 1, "IST4360": 2, "IST7111": 3, "IST7191": 4, "IST4012": 5, "IGL4040": 6,
+                    "ELG1170": 1, "IST7420": 2, "IST7121": 3, "IST7081": 4, "IST7102": 5, "IGL7030": 6,
+                    "ELG1190": 1, "ELG1301": 2, "IST7122": 3, "ELG1302": 4, "IST7410": 5, "ELG8400": 6, "IGL7080": 7,
+                    "ELG1160": 1, "ELG1305": 2, "ELG1303": 3, "ELG1304": 4, "ELP4030": 5, "IIN4319": 6, "IST4380": 7,
+                    "ELG1180": 1, "ELG1306": 2, "INV7363": 3, "ELP8090": 4,
+                }
+                return jerarquia.get(prefijo, 99)
+            
+            nodes.sort(key=lambda n: (
+                # 1. Criterio Primario: Semestre (Columna en la UI)
+                n["data"]["nivel"] if n["data"]["nivel"] > 0 else 99, 
+                
+                # 2. Criterio Secundario: Carril Temático (Fila en la UI)
+                get_prioridad_area(n["id"]),
+                
+                # 3. Desempate: Orden alfabético por si hay dos del mismo área
+                n["id"]
+            ))
+                        
+            return {
+                "nodes": nodes,
+                "edges": edges
+            }
+        
