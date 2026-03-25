@@ -137,16 +137,18 @@ def get_materias_disponibles(request: StudentStateRequest, repo: CurricularRepos
             return {"estado": "Sin materias disponibles para el estado actual", "disponibles": []}
 
         # 2. Extracción de la ventana heurística calculada en la query de Cypher
-        semestre_ancla = materias[0].get("semestre_ancla", 1)
-        
+        semestre_actual = min(m['semestre_sugerido'] for m in materias if m['semestre_sugerido'] > 0)
+        ventana_maxima = semestre_actual + 2
+
+        disponibles = [m for m in materias if m['semestre_sugerido'] <= ventana_maxima or m.get('tipo') == 'Requisito_Idioma']
         return {
             "estado_proyectado": {
-                "semestre_actual_calculado": semestre_ancla,
-                "limite_ventana_semestral": semestre_ancla + 2,
+                "semestre_actual_calculado": semestre_actual,
+                "limite_ventana_semestral": ventana_maxima,
                 "creditos_base": request.creditos_acumulados
             },
-            "total_disponibles": len(materias),
-            "disponibles": materias
+            "total_disponibles": len(disponibles),
+            "disponibles": disponibles
         }
     except Exception as e:
         raise HTTPException(
@@ -154,3 +156,24 @@ def get_materias_disponibles(request: StudentStateRequest, repo: CurricularRepos
             detail=f"Error evaluando el subgrafo de disponibilidad: {str(e)}"
         )
 
+@router.get("/malla-visual")
+def get_malla_visual(repo: CurricularRepository = Depends(get_repository)):
+    """
+    Endpoint O(V+E) que retorna la estructura topológica del plan de estudios
+    formateada para renderizado de grafos en UI (Nodos y Edges).
+    """
+    try:
+        grafo_data = repo.get_malla_visual()
+        return {
+            "metadata": {
+                "total_nodos": len(grafo_data["nodes"]),
+                "total_aristas": len(grafo_data["edges"])
+            },
+            "grafo": grafo_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error extrayendo topología visual: {str(e)}"
+        )
+    

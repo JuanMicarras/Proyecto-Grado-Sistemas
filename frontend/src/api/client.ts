@@ -51,9 +51,24 @@ export const api = {
       throw new Error(`Error del servidor: ${response.status}`);
     }
     return response.json();
-  }
+  },
   
 
+  getDisponibles: async (payload: SimulationPayload): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/disponibles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Le enviamos el estado exacto del estudiante (aprobadas, creditos, etc.)
+      body: JSON.stringify(payload), 
+    });
 
+    if (!response.ok) {
+      throw new Error(`Error del servidor: ${response.status}`);
+    }
+
+    return response.json();
+  },
 
 };
