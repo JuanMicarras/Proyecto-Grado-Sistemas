@@ -177,3 +177,29 @@ def get_malla_visual(repo: CurricularRepository = Depends(get_repository)):
             detail=f"Error extrayendo topología visual: {str(e)}"
         )
     
+@router.post("/simulate-flexible-path")
+def simulate_flexible_path(request: StudentStateRequest, optimizer: PathOptimizer = Depends(get_optimizer)):
+    """
+    Endpoint de simulación estocástica que ignora las restricciones de cohorte (Ventana N+2).
+    Intenta saturar los créditos semestrales al máximo posible marcando los adelantos.
+    """
+    try:
+        resultado = optimizer.simular_trayectoria_completa(
+            aprobadas_iniciales=request.aprobadas,
+            creditos_iniciales=request.creditos_acumulados,
+            max_creditos=request.max_creditos,
+            perfil_estudiante=request.perfil_estudiante,
+            materias_prioritarias=request.materias_prioritarias,
+            ignorar_ventana=True  # <--- SE ACTIVA EL MODO "AVANCE FLEXIBLE"
+        )
+        
+        if not resultado.get("trayectoria"):
+            raise HTTPException(
+                status_code=409, 
+                detail="Deadlock detectado: Imposible avanzar incluso ignorando las restricciones de ventana."
+            )
+            
+        return resultado
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

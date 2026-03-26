@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAcademicStore } from "../store/academicStore";
 
 export function Home() {
-  const { payload, toggleMateria, updatePayload } = useAcademicStore();
+  const { payload, toggleMateria, updatePayload, setSimulationResult, isFlexibleMode, setFlexibleMode } = useAcademicStore();
 
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,14 +110,18 @@ export function Home() {
   }, [payload.aprobadas, catalogoData]);
 
   const simulateMutation = useMutation({
-    mutationFn: api.simulatePath,
+    // Ahora recibe "payloadFinal" como parámetro cuando la llamemos
+    mutationFn: (payloadFinal: SimulationPayload) => isFlexibleMode 
+        ? api.simulateFlexiblePath(payloadFinal) 
+        : api.simulatePath(payloadFinal),
     onSuccess: (data) => {
-      console.log("¡Simulación exitosa!", data);
-      // TODO: Aquí redireccionaremos o mostraremos los resultados
+      setSimulationResult(data);
+      navigate('/resultados');
     },
     onError: (error) => {
       console.error("Falló la simulación:", error);
-    },
+      alert("Error al contactar con el motor de optimización.");
+    }
   });
 
 
@@ -156,10 +160,18 @@ export function Home() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    simulateMutation.mutate({
+    
+    // 1. Armamos el paquete con los datos MÁS RECIENTES justo en este milisegundo
+    const payloadFinal = {
       ...payload,
-      creditos_acumulados: creditosAcumulados,
-    });
+      creditos_acumulados: creditosAcumulados
+    };
+
+    // (Opcional) Tu console.log para confirmar que ahora sí va bien
+    // console.log("Enviando ahora sí el payload correcto:", payloadFinal);
+
+    // 2. Se lo inyectamos a la mutación
+    simulateMutation.mutate(payloadFinal);
   };
   // MENTORÍA TÉCNICA: RENDERIZADO CONDICIONAL DE VISTAS
   // Si tenemos datos de la mutación, reemplazamos la pantalla entera.
@@ -383,6 +395,29 @@ export function Home() {
           </div>
 
           <hr className="border-slate-100" />
+
+          {/* NUEVO MÓDULO: AVANCE FLEXIBLE */}
+          <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
+            <div>
+              <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                ⚡ Habilitar Avance Flexible
+              </h3>
+              <p className="text-xs text-amber-700 mt-1">
+                Permite al algoritmo saltar ciertos prerrequisitos si cumples con las condiciones. Ideal para adelantar materias.
+              </p>
+            </div>
+            
+            {/* Toggle Switch UI */}
+            <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+              <input 
+                type="checkbox" 
+                className="sr-only peer"
+                checked={isFlexibleMode}
+                onChange={(e) => setFlexibleMode(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+            </label>
+          </div>
 
           {/* NUEVO MÓDULO: AGENCIA DEL USUARIO (MATERIAS PRIORITARIAS) */}
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">

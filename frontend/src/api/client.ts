@@ -53,7 +53,6 @@ export const api = {
     return response.json();
   },
   
-
   getDisponibles: async (payload: SimulationPayload): Promise<any> => {
     const response = await fetch(`${API_BASE_URL}/disponibles`, {
       method: 'POST',
@@ -68,6 +67,17 @@ export const api = {
       throw new Error(`Error del servidor: ${response.status}`);
     }
 
+    return response.json();
+  },
+
+  simulateFlexiblePath: async (payload: SimulationPayload): Promise<SimulatePathResponse> => {
+    const response = await fetch(`${API_BASE_URL}/simulate-flexible-path`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
     return response.json();
   },
 

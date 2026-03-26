@@ -4,7 +4,7 @@ class PathOptimizer:
         # solo conoce la interfaz del repositorio.
         self.repo = repository
 
-    def generar_semestre_optimo(self, aprobadas: list, creditos_acumulados: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None,plan_id: str = "SIST-2024") -> dict:
+    def generar_semestre_optimo(self, aprobadas: list, creditos_acumulados: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None,plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
         """
         Genera el conjunto óptimo de materias a matricular maximizando el avance 
         curricular y respetando la restricción de créditos máximos.
@@ -21,7 +21,15 @@ class PathOptimizer:
         semestre_actual = min(m['semestre_sugerido'] for m in disponibles_crudo if m['semestre_sugerido'] > 0)
         ventana_maxima = semestre_actual + 2
 
-        disponibles = [m for m in disponibles_crudo if m['semestre_sugerido'] <= ventana_maxima or m.get('tipo') == 'Requisito_Idioma']
+        
+        # Lógica de Bypass Condicional
+        if ignorar_ventana:
+            disponibles = disponibles_crudo  # Pasan todas las que cumplan prerrequisitos
+        else:
+            disponibles = [
+                m for m in disponibles_crudo 
+                if m['semestre_sugerido'] <= ventana_maxima or m.get('tipo') == 'Requisito_Idioma'
+            ]
         if not disponibles: disponibles = disponibles_crudo # Fallback preventivo
 
         ruta_data = self.repo.get_ruta_critica_dinamica(aprobadas, plan_id)
@@ -79,12 +87,15 @@ class PathOptimizer:
             if carga_creditos_actual + creditos_bloque <= max_creditos:
                 for mat in bloque_materias:
                     if mat['codigo'] not in procesados:
+
+                        es_avance_flexible = (mat['semestre_sugerido'] > ventana_maxima) and (mat.get('tipo') != 'Requisito_Idioma')
                         seleccion.append({
                             "codigo": mat['codigo'],
                             "nombre": mat['nombre'],
                             "creditos": mat['creditos'],
                             "dificultad": mat['dificultad'],
-                            "es_critica": mat['codigo'] in codigos_criticos
+                            "es_critica": mat['codigo'] in codigos_criticos,
+                            "requiere_avance_flexible": es_avance_flexible
                         })
                         procesados.add(mat['codigo'])
                         carga_creditos_actual += mat['creditos']
@@ -99,7 +110,7 @@ class PathOptimizer:
             "seleccion": seleccion
         }
     
-    def simular_trayectoria_completa(self, aprobadas_iniciales: list, creditos_iniciales: int, max_creditos: int = 18, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None, plan_id: str = "SIST-2024") -> dict:
+    def simular_trayectoria_completa(self, aprobadas_iniciales: list, creditos_iniciales: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None, plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
         if materias_prioritarias is None:
             materias_prioritarias = []
         # Aislamiento de variables de estado para no mutar los inputs
@@ -116,7 +127,8 @@ class PathOptimizer:
                 max_creditos=max_creditos,
                 perfil_estudiante=perfil_estudiante,
                 materias_prioritarias=materias_prioritarias,
-                plan_id=plan_id
+                plan_id=plan_id,
+                ignorar_ventana=ignorar_ventana,
             )
 
             # 2. Condición de Parada: El empaquetador no pudo meter ninguna materia (Grafo vacío o Deadlock de créditos)
@@ -152,3 +164,4 @@ class PathOptimizer:
             },
             "trayectoria": trayectoria_proyectada
         }
+    

@@ -13,6 +13,7 @@ export interface Materia {
   nombre: string;
   creditos: number;
   es_critica: boolean;
+  requiere_avance_flexible?: boolean;
 }
 
 export interface ResumenSimulacion {
