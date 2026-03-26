@@ -21,7 +21,8 @@ class CurricularRepository:
                m.nombre AS nombre, 
                m.creditos AS creditos, 
                m.dificultad AS dificultad,
-               m.semestre AS semestre_sugerido
+               m.semestre AS semestre_sugerido,
+               m.tipo AS tipo
         ORDER BY m.semestre ASC, m.dificultad ASC
         """
         with self.driver.session() as session:
