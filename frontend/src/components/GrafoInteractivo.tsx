@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -8,121 +8,93 @@ import {
   useEdgesState,
   Handle,
   Position,
-} from "@xyflow/react";
-import type { Node, Edge } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useAcademicStore } from "../store/academicStore";
-import { api } from "../api/client";
+} from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useAcademicStore } from '../store/academicStore';
+import { api } from '../api/client';
 
 // ============================================================================
-// 1. COMPONENTE DE NODO PERSONALIZADO (El "Look and Feel" Moderno)
+// 1. COMPONENTE DE NODO
 // ============================================================================
 const CustomSubjectNode = ({ data }: { data: any }) => {
   const { isAprobada, isDisponible } = data;
-  let nodeStyle = "bg-slate-900 border-slate-800 opacity-50 grayscale"; // Por defecto: BLOQUEADA (Apagada)
-  let titleStyle = "text-slate-500";
-  let badge = null;
+
+  let nodeStyle = 'bg-slate-900 border-slate-800 opacity-50 grayscale cursor-not-allowed'; // Añadimos cursor-not-allowed
+  let titleStyle = 'text-slate-500';
+  let badge = <span className="text-[10px] font-bold bg-slate-900 text-slate-600 px-2 py-0.5 rounded-md border border-slate-800">Sem {data.nivel}</span>;
 
   if (isAprobada) {
-    nodeStyle =
-      "bg-slate-800 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)] opacity-100 grayscale-0";
-    titleStyle = "text-green-50";
-    badge = (
-      <span className="text-[10px] font-bold bg-green-900/50 text-green-400 px-2 py-0.5 rounded-md border border-green-700/50">
-        ✓ APROBADA
-      </span>
-    );
+    nodeStyle = 'bg-slate-800 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)] opacity-100 grayscale-0 cursor-pointer';
+    titleStyle = 'text-green-50';
+    badge = <span className="text-[10px] font-bold bg-green-900/50 text-green-400 px-2 py-0.5 rounded-md border border-green-700/50">✓ APROBADA</span>;
   } else if (isDisponible) {
-    nodeStyle =
-      "bg-slate-800 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.4)] opacity-100 grayscale-0 hover:border-blue-300 cursor-pointer";
-    titleStyle = "text-white font-bold";
-    badge = (
-      <span className="text-[10px] font-bold bg-blue-900/80 text-blue-300 px-2 py-0.5 rounded-md border border-blue-500 animate-pulse">
-        ✨ DISPONIBLE
-      </span>
-    );
-  } else {
-    // Si está bloqueada, mostramos el semestre de forma sutil
-    badge = (
-      <span className="text-[10px] font-bold bg-slate-900 text-slate-600 px-2 py-0.5 rounded-md border border-slate-800">
-        Sem {data.nivel}
-      </span>
-    );
+    nodeStyle = 'bg-slate-800 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.4)] opacity-100 grayscale-0 hover:border-blue-300 cursor-pointer';
+    titleStyle = 'text-white font-bold';
+    badge = <span className="text-[10px] font-bold bg-blue-900/80 text-blue-300 px-2 py-0.5 rounded-md border border-blue-500 animate-pulse">✨ DISPONIBLE</span>;
   }
+
   return (
-    // Diseño tipo tarjeta moderna, fondo oscuro, bordes sutiles y hover glow
-    <div
-      className={`px-4 py-3 shadow-lg rounded-xl border-2 transition-all duration-300 w-[260px] group cursor-pointer ${nodeStyle}`}
-
-        // style={{ backgroundColor: data.colorFondo || "#1e293b" }} // Color dinámico basado en el tipo de materia
+    <div className={`px-4 py-3 shadow-lg rounded-xl border-2 transition-all duration-500 w-[260px] group ${nodeStyle}`}
+    // style={{ backgroundColor: data.colorFondo || "#1e293b" }}
     >
-      {/* Punto de conexión de entrada (Izquierda) */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="w-3 h-3 bg-slate-800 border-2 border-blue-400 group-hover:bg-blue-400 transition-colors"
-      />
-
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-slate-800 border-2 border-slate-500 opacity-0 group-hover:opacity-100" />
       <div className="flex flex-col gap-1">
         <div className="flex justify-between items-start">
-          <span
-            className={`text-[10px] font-black tracking-widest uppercase ${isAprobada ? "text-green-400" : "text-slate-400"}`}
-          >
-            {data.id || "COD"}
+          <span className={`text-[10px] font-black tracking-widest uppercase ${isAprobada ? 'text-green-400' : isDisponible ? 'text-blue-400' : 'text-slate-600'}`}>
+            {data.id || 'COD'}
           </span>
           {badge}
         </div>
-
-        <h3 className="text-sm font-bold text-white leading-tight mt-1">
-          {data.label}
-        </h3>
-
+        <h3 className={`text-sm leading-tight mt-1 transition-colors ${titleStyle}`}>{data.label}</h3>
         <p className={`text-xs font-medium ${isAprobada || isDisponible ? 'text-slate-400' : 'text-slate-600'}`}>
           {data.creditos} cr • {data.tipo}
         </p>
       </div>
-
-      {/* Punto de conexión de salida (Derecha) */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="w-3 h-3 bg-slate-800 border-2 border-blue-400 group-hover:bg-blue-400 transition-colors"
-      />
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-slate-800 border-2 border-slate-500 opacity-0 group-hover:opacity-100" />
     </div>
   );
 };
 
-// Registramos nuestro nodo personalizado para que React Flow lo use
-const nodeTypes = {
-  customSubject: CustomSubjectNode,
-};
+const nodeTypes = { customSubject: CustomSubjectNode };
 
 // ============================================================================
-// 2. COMPONENTE PRINCIPAL Y ALGORITMO DE LAYOUT POR SEMESTRE
+// 2. COMPONENTE PRINCIPAL
 // ============================================================================
 export function GrafoInteractivo() {
   const navigate = useNavigate();
-
-  const { payload, toggleMateria } = useAcademicStore();
+  const { payload, toggleMateria } = useAcademicStore(); 
   const aprobadas = payload.aprobadas;
 
-  const { data: graphResponse, isLoading: isLoadingGrafo} = useQuery({
-    queryKey: ["grafo-curricular"],
-    queryFn: () =>
-      fetch("http://localhost:8000/api/v1/malla-visual").then((res) =>
-        res.json(),
-      ),
-  });
-  
-  const { data: disponiblesResponse } = useQuery({
-    queryKey: ['materias-disponibles', payload],
-    queryFn: () => api.getDisponibles(payload),
-    enabled: !!graphResponse, // No disparamos esto hasta que el grafo principal exista
+  const { data: graphResponse, isLoading: isLoadingGrafo } = useQuery({
+    queryKey: ['grafo-curricular'],
+    queryFn: () => fetch('http://localhost:8000/api/v1/malla-visual').then(res => res.json()),
   });
 
-  // Extraemos un array simple de strings con los códigos disponibles para buscar más rápido
+  // SOLUCIÓN 1: Calculamos los créditos en tiempo real dentro del Grafo
+  const creditosAcumulados = useMemo(() => {
+    if (!graphResponse?.grafo?.nodes) return 0;
+    return aprobadas.reduce((total, codigo) => {
+      const nodoMateria = graphResponse.grafo.nodes.find((n: any) => n.id === codigo);
+      return total + (nodoMateria?.data?.creditos || 0);
+    }, 0);
+  }, [aprobadas, graphResponse]);
+
+  // SOLUCIÓN 1 (Continuación): Inyectamos los créditos reales al llamar a /disponibles
+  const payloadConCreditos = useMemo(() => ({
+    ...payload,
+    creditos_acumulados: creditosAcumulados
+  }), [payload, creditosAcumulados]);
+
+  const { data: disponiblesResponse } = useQuery({
+    // Usamos el array de aprobadas y los créditos como llaves de caché para que reaccione instantáneamente
+    queryKey: ['materias-disponibles', aprobadas, creditosAcumulados], 
+    queryFn: () => api.getDisponibles(payloadConCreditos),
+    enabled: !!graphResponse, 
+  });
+
   const codigosDisponibles = useMemo(() => {
     if (!disponiblesResponse?.disponibles) return [];
     return disponiblesResponse.disponibles.map((m: any) => m.codigo);
@@ -166,8 +138,8 @@ export function GrafoInteractivo() {
   useEffect(() => {
     if (graphResponse?.grafo) {
       const { nodes: rawNodes, edges: rawEdges } = graphResponse.grafo;
-
       const materiasPorSemestre: Record<number, any[]> = {};
+      
       rawNodes.forEach((node: any) => {
         const nivel = node.data.nivel || 1;
         if (!materiasPorSemestre[nivel]) materiasPorSemestre[nivel] = [];
@@ -214,20 +186,17 @@ export function GrafoInteractivo() {
 
       const styledEdges: Edge[] = rawEdges.map((edge: any) => ({
         ...edge,
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#3b82f6", strokeWidth: 2, opacity: 0.6 },
+        type: 'smoothstep',
+        animated: true,     
+        style: { stroke: '#3b82f6', strokeWidth: 1.5, opacity: 0.3 }, 
       }));
 
       setNodes(positionedNodes);
       setEdges(styledEdges);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graphResponse, setNodes, setEdges]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphResponse, setNodes, setEdges]); 
 
-  // ==================================================================
-  // EFECTO 2: PINTOR EN TIEMPO REAL (Escucha a Zustand)
-  // ==================================================================
   useEffect(() => {
     setNodes((nodosActuales) =>
       nodosActuales.map((nodo) => ({
@@ -242,56 +211,50 @@ export function GrafoInteractivo() {
   }, [aprobadas, codigosDisponibles, setNodes]);
 
   if (isLoadingGrafo) {
-    return (
-      <div className="h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white gap-4">
-        <div className="w-12 h-12 border-4 border-blue-900 border-t-blue-500 rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-400 tracking-widest uppercase text-sm">
-          Construyendo Mapa Curricular...
-        </p>
-      </div>
-    );
+    return <div className="h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white">Cargando...</div>;
   }
 
   return (
     <div className="h-screen w-screen bg-[#0f172a] flex flex-col font-sans">
-      {/* HEADER DEL GRAFO */}
       <header className="p-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center z-10 shadow-lg">
         <div>
-          <h1 className="text-white font-black text-xl tracking-tight">
-            Malla Interactiva
-          </h1>
-          <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mt-0.5">
-            Vista de Correlativas
-          </p>
+          <h1 className="text-white font-black text-xl tracking-tight">Malla Interactiva</h1>
+          <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mt-0.5">Vista de Correlativas</p>
         </div>
-        <button
-          onClick={() => navigate("/")}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all active:scale-95"
-        >
+        <button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all active:scale-95">
           ← Volver al Planificador
         </button>
       </header>
 
-      {/* LIENZO DEL GRAFO */}
       <div className="flex-grow">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onNodeClick={(_, node) => toggleMateria(node.id)}
-          nodeTypes={nodeTypes} // Inyectamos nuestros nodos
+          // SOLUCIÓN 2: Solo permitimos el clic si está disponible o si ya la habías aprobado (para quitarla)
+          onNodeClick={(_, node) => {
+            if (node.data.isAprobada || node.data.isDisponible) {
+              toggleMateria(node.id);
+            }
+          }}
+          nodeTypes={nodeTypes}
           fitView
           colorMode="dark"
           minZoom={0.2}
         >
-          {/* Fondo con grilla muy sutil */}
           <Background color="#1e293b" gap={24} size={2} />
           <Controls className="bg-slate-800 border-slate-700 fill-white" />
-          <MiniMap
-            nodeColor="#3b82f6"
-            maskColor="rgba(15, 23, 42, 0.8)"
-            className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden"
+          
+          {/* SOLUCIÓN 3: Minimapa configurado explícitamente con los colores Hexadecimales */}
+          <MiniMap 
+            nodeColor={(n) => {
+              if (n.data.isAprobada) return '#16a34a'; // Verde fuerte
+              if (n.data.isDisponible) return '#2563eb'; // Azul fuerte
+              return '#1e293b'; // Gris oscuro para las bloqueadas
+            }} 
+            maskColor="rgba(15, 23, 42, 0.85)" 
+            className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden" 
           />
         </ReactFlow>
       </div>
