@@ -1,4 +1,4 @@
-# Sistema Inteligente de Planificación Académica (SIPA)
+# Acacia: Sistema Inteligente de Planificación Académica
 
 ![Status](https://img.shields.io/badge/Estado-Prototipo_Funcional-green)
 ![Python](https://img.shields.io/badge/Backend-Python_FastAPI-blue)
