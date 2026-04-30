@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SimulationPayload, MateriaCatalogo } from "../types/academic";
 import { api } from "../api/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -18,6 +18,25 @@ export function Home() {
 
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [quickFillOpen, setQuickFillOpen] = useState(false);
+  const quickFillRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        quickFillRef.current &&
+        !quickFillRef.current.contains(event.target as Node)
+      ) {
+        setQuickFillOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const {
     data: catalogoData,
@@ -161,9 +180,7 @@ export function Home() {
     updatePayload({ aprobadas: materiasAAprobar });
   };
 
-  const handleMaxCreditosChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleMaxCreditosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
 
     if (Number.isNaN(value)) {
@@ -231,10 +248,15 @@ export function Home() {
       <section className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-6 mt-4 md:mt-10">
         <header className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 leading-tight">
+            <div className="inline-flex items-center  border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700 mb-2">
+              Ingeniería de Sistemas
+            </div>
+
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 leading-tight">
               Planificador Académico
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+
+            <p className="text-sm md:text-base text-slate-500 mt-1">
               Selecciona tus materias aprobadas.
             </p>
           </div>
@@ -266,27 +288,50 @@ export function Home() {
               ⚡ Llenado rápido
             </span>
 
-            <select
-              className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-              onChange={(e) => {
-                const valor = Number(e.target.value);
+            <div className="relative" ref={quickFillRef}>
+              <button
+                type="button"
+                onClick={() => setQuickFillOpen((prev) => !prev)}
+                className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer flex items-center justify-between gap-3 min-w-[220px] md:min-w-[260px]"
+              >
+                <span>Aprobar hasta semestre...</span>
 
-                if (valor > 0) aprobarHastaSemestre(valor);
+                <svg
+                  className={`h-4 w-4 transition-transform ${
+                    quickFillOpen ? "rotate-180" : ""
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
 
-                e.target.value = "";
-              }}
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Aprobar hasta semestre...
-              </option>
-
-              {semestresAgrupados.map((grupo) => (
-                <option key={grupo.semestre} value={grupo.semestre}>
-                  Todo hasta Semestre {grupo.semestre}
-                </option>
-              ))}
-            </select>
+              {quickFillOpen && (
+                <div className="absolute right-0 mt-2 w-full min-w-[220px] md:min-w-[260px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-30">
+                  <div className="max-h-72 overflow-y-auto py-1">
+                    {semestresAgrupados.map((grupo) => (
+                      <button
+                        key={grupo.semestre}
+                        type="button"
+                        onClick={() => {
+                          aprobarHastaSemestre(grupo.semestre);
+                          setQuickFillOpen(false);
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs md:text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                      >
+                        Todo hasta Semestre {grupo.semestre}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -488,7 +533,6 @@ export function Home() {
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-600 text-white shadow-sm animate-in zoom-in duration-200"
                     >
                       {codigo} - {materiaReal?.nombre.substring(0, 15)}...
-
                       <button
                         type="button"
                         onClick={() => togglePrioridad(codigo)}
@@ -580,7 +624,6 @@ export function Home() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-
                 Procesando en el servidor...
               </>
             ) : (
