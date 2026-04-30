@@ -58,7 +58,7 @@ cd backend
 # (Opcional) Crear entorno virtual: python -m venv venv
 pip install -r requirements.txt
 # (Solo la primera vez) Cargar datos semilla
-python loader.py
+python .\scripts\graph_builder.py
 uvicorn main:app --reload
 El servidor iniciará en: http://127.0.0.1:8000
 ```
