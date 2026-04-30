@@ -7,12 +7,18 @@ import { useNavigate } from "react-router-dom";
 import { useAcademicStore } from "../store/academicStore";
 
 export function Home() {
-  const { payload, toggleMateria, updatePayload, setSimulationResult, isFlexibleMode, setFlexibleMode } = useAcademicStore();
+  const {
+    payload,
+    toggleMateria,
+    updatePayload,
+    setSimulationResult,
+    isFlexibleMode,
+    setFlexibleMode,
+  } = useAcademicStore();
 
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 1. FETCH DINÁMICO: Obtenemos el catálogo real de Neo4j
   const {
     data: catalogoData,
     isLoading: isLoadingCatalogo,
@@ -20,26 +26,23 @@ export function Home() {
   } = useQuery({
     queryKey: ["catalogo"],
     queryFn: api.getCatalogo,
-    refetchOnWindowFocus: false, // Evita peticiones innecesarias si cambias de pestaña
+    refetchOnWindowFocus: false,
   });
-  // MENTORÍA TÉCNICA: Buscador Predictivo (Typeahead) en Memoria
-  // Filtramos el catálogo en tiempo real según lo que el usuario escribe.
+
   const resultadosBusqueda = useMemo(() => {
     if (!searchTerm || !catalogoData?.catalogo) return [];
 
     const term = searchTerm.toLowerCase();
+
     return catalogoData.catalogo
       .filter(
         (m) =>
-          // 1. Que coincida con el nombre o código
           (m.nombre.toLowerCase().includes(term) ||
             m.codigo.toLowerCase().includes(term)) &&
-          // 2. Que NO esté ya aprobada
           !payload.aprobadas.includes(m.codigo) &&
-          // 3. Que NO esté ya en la lista de prioritarias
           !payload.materias_prioritarias.includes(m.codigo),
       )
-      .slice(0, 20); // Limitamos a 4 resultados para no empujar el layout hacia abajo bruscamente
+      .slice(0, 20);
   }, [
     searchTerm,
     catalogoData,
@@ -59,7 +62,7 @@ export function Home() {
       return;
     }
 
-    if (payload.materias_prioritarias.length >= 3) {
+    if (payload.materias_prioritarias.length >= 5) {
       alert(
         "Para no sobrecargar el algoritmo, puedes elegir un máximo de 3 materias prioritarias.",
       );
@@ -69,35 +72,33 @@ export function Home() {
     updatePayload({
       materias_prioritarias: [...payload.materias_prioritarias, codigo],
     });
+
     setSearchTerm("");
   };
 
-  // 2. TRANSFORMACIÓN DE DATOS (Agrupación por Semestre)
-  // Convertimos un array plano [{nombre: 'Calc I', semestre: 1}, ...] en un diccionario o array anidado.
   const semestresAgrupados = useMemo(() => {
     if (!catalogoData?.catalogo) return [];
 
-    // Agrupamos por semestre usando un objeto como diccionario
     const grupos = catalogoData.catalogo.reduce(
       (acc, materia) => {
-        const sem = materia.semestre || 0; // Fallback por si alguna materia no tiene semestre
+        const sem = materia.semestre || 0;
+
         if (!acc[sem]) acc[sem] = [];
         acc[sem].push(materia);
+
         return acc;
       },
       {} as Record<number, MateriaCatalogo[]>,
     );
 
-    // Convertimos el diccionario a un array ordenado por el número del semestre
     return Object.entries(grupos)
       .map(([sem, materias]) => ({
         semestre: Number(sem),
-        materias: materias.sort((a, b) => a.nombre.localeCompare(b.nombre)), // Orden alfabético dentro del semestre
+        materias: materias.sort((a, b) => a.nombre.localeCompare(b.nombre)),
       }))
       .sort((a, b) => a.semestre - b.semestre);
   }, [catalogoData]);
 
-  // 3. ESTADO DERIVADO (Calcula créditos basándose en el catálogo real)
   const creditosAcumulados = useMemo(() => {
     if (!catalogoData?.catalogo) return 0;
 
@@ -105,28 +106,29 @@ export function Home() {
       const materia = catalogoData.catalogo.find(
         (m) => m.codigo === codigoAprobado,
       );
+
       return total + (materia?.creditos || 0);
     }, 0);
   }, [payload.aprobadas, catalogoData]);
 
   const simulateMutation = useMutation({
-    // Ahora recibe "payloadFinal" como parámetro cuando la llamemos
-    mutationFn: (payloadFinal: SimulationPayload) => isFlexibleMode 
-        ? api.simulateFlexiblePath(payloadFinal) 
+    mutationFn: (payloadFinal: SimulationPayload) =>
+      isFlexibleMode
+        ? api.simulateFlexiblePath(payloadFinal)
         : api.simulatePath(payloadFinal),
     onSuccess: (data) => {
       setSimulationResult(data);
-      navigate('/resultados');
+      navigate("/resultados");
     },
     onError: (error) => {
       console.error("Falló la simulación:", error);
       alert("Error al contactar con el motor de optimización.");
-    }
+    },
   });
-
 
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
+
     const estanTodasSeleccionadas = codigosSemestre.every((codigo) =>
       payload.aprobadas.includes(codigo),
     );
@@ -142,6 +144,7 @@ export function Home() {
         ...payload.aprobadas,
         ...codigosSemestre,
       ]);
+
       updatePayload({
         aprobadas: Array.from(unionSinDuplicados),
       });
@@ -158,35 +161,44 @@ export function Home() {
     updatePayload({ aprobadas: materiasAAprobar });
   };
 
+  const handleMaxCreditosChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = Number(e.target.value);
+
+    if (Number.isNaN(value)) {
+      updatePayload({ max_creditos: 0 });
+      return;
+    }
+
+    updatePayload({
+      max_creditos: Math.max(0, Math.min(23, value)),
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 1. Armamos el paquete con los datos MÁS RECIENTES justo en este milisegundo
+
     const payloadFinal = {
       ...payload,
-      creditos_acumulados: creditosAcumulados
+      creditos_acumulados: creditosAcumulados,
     };
 
-    // (Opcional) Tu console.log para confirmar que ahora sí va bien
-    // console.log("Enviando ahora sí el payload correcto:", payloadFinal);
-
-    // 2. Se lo inyectamos a la mutación
     simulateMutation.mutate(payloadFinal);
   };
-  // MENTORÍA TÉCNICA: RENDERIZADO CONDICIONAL DE VISTAS
-  // Si tenemos datos de la mutación, reemplazamos la pantalla entera.
+
   if (simulateMutation.isSuccess && simulateMutation.data && catalogoData) {
     return (
       <main className="min-h-screen bg-slate-50 py-8">
         <GraduationTimeline
           data={simulateMutation.data}
           catalogo={catalogoData.catalogo}
-          onReset={() => simulateMutation.reset()} // Esto limpia el estado y vuelve al formulario
+          onReset={() => simulateMutation.reset()}
         />
       </main>
     );
   }
-  // MENTORÍA: MANEJO DE ESTADOS DE CARGA (Skeletons / Spinners)
+
   if (isLoadingCatalogo) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -228,12 +240,12 @@ export function Home() {
           </div>
 
           <div className="flex gap-3">
-            {/* NUEVO BOTÓN PARA IR AL GRAFO EN PANTALLA COMPLETA */}
             <button
+              type="button"
               onClick={() => navigate("/malla")}
               className="bg-slate-900 hover:bg-black text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all"
             >
-              🗺️ Explorar Malla Interactiva
+              Explorar Malla Interactiva
             </button>
 
             <div className="flex flex-col items-end bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
@@ -249,17 +261,18 @@ export function Home() {
         </header>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-          {/* NUEVA HERRAMIENTA: LLENADO RÁPIDO */}
           <div className="flex items-center justify-between bg-blue-50/50 p-3 rounded-xl border border-blue-100">
             <span className="text-xs md:text-sm font-bold text-blue-800 flex items-center gap-2">
               ⚡ Llenado rápido
             </span>
+
             <select
               className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
               onChange={(e) => {
                 const valor = Number(e.target.value);
+
                 if (valor > 0) aprobarHastaSemestre(valor);
-                // Reseteamos el select visualmente para que actúe como un botón de acción
+
                 e.target.value = "";
               }}
               defaultValue=""
@@ -267,6 +280,7 @@ export function Home() {
               <option value="" disabled>
                 Aprobar hasta semestre...
               </option>
+
               {semestresAgrupados.map((grupo) => (
                 <option key={grupo.semestre} value={grupo.semestre}>
                   Todo hasta Semestre {grupo.semestre}
@@ -275,22 +289,21 @@ export function Home() {
             </select>
           </div>
 
-          {/* RENDERIZADO DINÁMICO DEL CATÁLOGO REAL */}
           <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             {semestresAgrupados.map((grupo) => {
-              // Calculamos aquí mismo si todas están seleccionadas para saber qué texto mostrar en el botón
               const codigosGrupo = grupo.materias.map((m) => m.codigo);
+
               const todasSeleccionadas = codigosGrupo.every((c) =>
                 payload.aprobadas.includes(c),
               );
 
               return (
                 <div key={grupo.semestre} className="flex flex-col gap-2">
-                  {/* NUEVO HEADER CON BOTÓN ACCESIBLE Y ELEGANTE */}
                   <div className="flex justify-between items-end border-b pb-1 sticky top-0 bg-white z-10 pt-1">
                     <h3 className="text-sm font-bold text-slate-700">
                       Semestre {grupo.semestre}
                     </h3>
+
                     <button
                       type="button"
                       onClick={() => toggleSemestreCompleto(grupo.materias)}
@@ -311,33 +324,41 @@ export function Home() {
                       const isSelected = payload.aprobadas.includes(
                         materia.codigo,
                       );
+
                       return (
                         <button
                           key={materia.codigo}
                           type="button"
                           onClick={() => toggleMateria(materia.codigo)}
                           className={`
-                          text-left px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border
-                          ${
-                            isSelected
-                              ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                          }
-                        `}
+                            text-left px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border
+                            ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                            }
+                          `}
                         >
                           <div className="flex justify-between items-center gap-3">
                             <span className="block font-bold">
                               {materia.codigo}
                             </span>
-                            {/* Pequeño badge indicando los créditos en la misma píldora */}
+
                             <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                isSelected
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-slate-200 text-slate-500"
+                              }`}
                             >
                               {materia.creditos}
                             </span>
                           </div>
+
                           <span
-                            className={`block text-xs font-normal mt-0.5 ${isSelected ? "text-blue-100" : "text-slate-400"}`}
+                            className={`block text-xs font-normal mt-0.5 ${
+                              isSelected ? "text-blue-100" : "text-slate-400"
+                            }`}
                           >
                             {materia.nombre}
                           </span>
@@ -352,98 +373,122 @@ export function Home() {
 
           <hr className="border-slate-100" />
 
-          {/* PARÁMETROS DE SIMULACIÓN (Ahora solo 2 columnas) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="max_creditos"
                 className="text-sm font-semibold text-slate-700"
               >
-                Límite por Semestre
+                Límite de créditos por Semestre
               </label>
-              <input
-                id="max_creditos"
-                type="number"
-                value={payload.max_creditos}
-                onChange={(e) =>
-                  updatePayload({ max_creditos: Number(e.target.value) })
-                }
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
+
+              <div className="relative">
+                <input
+                  id="max_creditos"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={payload.max_creditos}
+                  onChange={handleMaxCreditosChange}
+                  className="
+                    w-full px-4 py-3 pr-4 rounded-lg border border-slate-200
+                    bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500
+                    outline-none transition-all
+                    [&::-webkit-inner-spin-button]:opacity-100
+                    [&::-webkit-inner-spin-button]:cursor-pointer
+                    [&::-webkit-outer-spin-button]:opacity-100
+                  "
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="perfil"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Perfil de Ritmo
-              </label>
-              <select
-                id="perfil"
-                value={payload.perfil_estudiante}
-                onChange={(e) =>
-                  updatePayload({ perfil_estudiante: e.target.value as any })
-                }
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-all"
-              >
-                <option value="suave">Suave (Relajado)</option>
-                <option value="balanceado">Balanceado (Recomendado)</option>
-                <option value="agresivo">Agresivo (Rápido)</option>
-              </select>
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="perfil"
+                  className="text-sm font-semibold text-slate-500"
+                >
+                  Perfil de Ritmo
+                </label>
+
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                  Deshabilitado
+                </span>
+              </div>
+
+              <div className="relative">
+                <select
+                  id="perfil"
+                  value={payload.perfil_estudiante}
+                  disabled
+                  aria-disabled="true"
+                  title="Esta opción estará disponible más adelante"
+                  className="
+                    w-full px-4 py-3 pr-10 rounded-lg border border-slate-200
+                    bg-slate-100 text-slate-400 outline-none appearance-none
+                    cursor-not-allowed opacity-70
+                  "
+                >
+                  <option value="suave">Suave (Relajado)</option>
+                  <option value="balanceado">Balanceado (Recomendado)</option>
+                  <option value="agresivo">Agresivo (Rápido)</option>
+                </select>
+              </div>
             </div>
           </div>
 
           <hr className="border-slate-100" />
 
-          {/* NUEVO MÓDULO: AVANCE FLEXIBLE */}
           <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
             <div>
               <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                 ⚡ Habilitar Avance Flexible
               </h3>
+
               <p className="text-xs text-amber-700 mt-1">
-                Permite al algoritmo saltar ciertos prerrequisitos si cumples con las condiciones. Ideal para adelantar materias.
+                Permite al algoritmo saltar ciertos prerrequisitos si cumples
+                con las condiciones. Ideal para adelantar materias.
               </p>
             </div>
-            
-            {/* Toggle Switch UI */}
+
             <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 className="sr-only peer"
                 checked={isFlexibleMode}
                 onChange={(e) => setFlexibleMode(e.target.checked)}
               />
+
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
             </label>
           </div>
 
-          {/* NUEVO MÓDULO: AGENCIA DEL USUARIO (MATERIAS PRIORITARIAS) */}
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
             <header>
               <h3 className="text-sm font-bold text-purple-900 flex items-center gap-2">
                 🎯 ¿Tienes alguna prioridad?
               </h3>
+
               <p className="text-xs text-purple-700 mt-1">
                 Busca hasta 5 materias que te urge cursar. Nuestro algoritmo
                 intentará adelantarlas lo más posible.
               </p>
             </header>
 
-            {/* DOCK DE PÍLDORAS SELECCIONADAS */}
             {payload.materias_prioritarias.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {payload.materias_prioritarias.map((codigo) => {
                   const materiaReal = catalogoData?.catalogo.find(
                     (c) => c.codigo === codigo,
                   );
+
                   return (
                     <span
                       key={codigo}
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-600 text-white shadow-sm animate-in zoom-in duration-200"
                     >
                       {codigo} - {materiaReal?.nombre.substring(0, 15)}...
+
                       <button
                         type="button"
                         onClick={() => togglePrioridad(codigo)}
@@ -457,7 +502,6 @@ export function Home() {
               </div>
             )}
 
-            {/* BUSCADOR PREDICTIVO */}
             <div className="relative">
               <input
                 type="text"
@@ -472,7 +516,6 @@ export function Home() {
                 className="w-full px-4 py-3 rounded-lg border border-purple-200 bg-white focus:ring-2 focus:ring-purple-500 outline-none text-sm transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
 
-              {/* RESULTADOS DEL BUSCADOR FLOTANTES */}
               {resultadosBusqueda.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-20 flex flex-col overflow-hidden">
                   {resultadosBusqueda.map((materia) => (
@@ -486,10 +529,12 @@ export function Home() {
                         <span className="font-bold text-slate-800 block">
                           {materia.codigo}
                         </span>
+
                         <span className="text-slate-500 text-xs">
                           {materia.nombre}
                         </span>
                       </div>
+
                       <span className="text-xs bg-slate-100 px-2 py-1 rounded font-medium text-slate-600">
                         Sem {materia.semestre}
                       </span>
@@ -502,15 +547,18 @@ export function Home() {
 
           <button
             type="submit"
-            disabled={simulateMutation.isPending} // Desactiva el botón si está cargando
+            disabled={simulateMutation.isPending}
             className={`
               w-full text-white font-bold py-4 rounded-xl shadow-sm transition-colors text-lg flex justify-center items-center gap-2
-              ${simulateMutation.isPending ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"}
+              ${
+                simulateMutation.isPending
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
+              }
             `}
           >
             {simulateMutation.isPending ? (
               <>
-                {/* SVG de un spinner de carga girando */}
                 <svg
                   className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
                   xmlns="http://www.w3.org/2000/svg"
@@ -525,12 +573,14 @@ export function Home() {
                     stroke="currentColor"
                     strokeWidth="4"
                   ></circle>
+
                   <path
                     className="opacity-75"
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
+
                 Procesando en el servidor...
               </>
             ) : (
@@ -538,7 +588,6 @@ export function Home() {
             )}
           </button>
 
-          {/* MENSAJE DE ERROR VISUAL SI PYTHON FALLA */}
           {simulateMutation.isError && (
             <div className="p-3 bg-red-50 text-red-700 text-sm font-semibold rounded-lg border border-red-200 text-center">
               Hubo un problema de conexión con el servidor. Revisa si tu backend

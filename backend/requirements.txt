@@ -3,3 +3,5 @@ uvicorn
 pandas
 networkx
 pydantic
+neo4j
+ortools
