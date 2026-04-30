@@ -59,7 +59,7 @@ cd backend
 pip install -r requirements.txt
 # (Solo la primera vez) Cargar datos semilla
 python .\scripts\graph_builder.py
-uvicorn main:app --reload
+python -m uvicorn app.main:app --reload
 El servidor iniciará en: http://127.0.0.1:8000
 ```
 
