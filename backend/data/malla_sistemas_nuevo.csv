@@ -15,7 +15,7 @@ FIS1043,Fisica Calor Ondas,4,FIS1023;MAT1101,3,Obligatoria,,1,0
 IST4021,Estructura de Datos I,3,IST2089,3,Obligatoria,,1,0
 IST2110,Programacion Orientada a Objetos,3,IST2089,3,Obligatoria,,1,0
 ELG1150,Electiva en Ciencias de la vida,3,,4,Electiva,,1,0
-MAT4011,Ecuaciones Diferenciales,3,,4,Obligatoria,,1,0
+MAT4011,Ecuaciones Diferenciales,3,MAT1111,4,Obligatoria,,1,0
 FIS1033,Fisica Electricidad,4,FIS1023;MAT1111,4,Obligatoria,,1,0
 IST4031,Estructura de Datos II,3,IST4021,4,Obligatoria,,1,0
 MAT4021,Matematicas Discretas,3,,4,Obligatoria,,1,0
