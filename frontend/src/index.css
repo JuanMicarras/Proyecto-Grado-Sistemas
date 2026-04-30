@@ -4,3 +4,65 @@
 *, *::before, *::after {
   box-sizing: border-box;
 }
+
+/* Estilos para impresión / Guardar como PDF */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #f8fafc !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-page {
+    background: #f8fafc !important;
+    padding: 0 !important;
+  }
+
+  .print-container {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .print-semester-header {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18) !important;
+  }
+
+  .print-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .print-card {
+    width: auto !important;
+    min-width: 0 !important;
+    background: #ffffff !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12) !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-section {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}

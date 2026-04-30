@@ -7,15 +7,12 @@ export function Resultados() {
   const navigate = useNavigate();
   const { simulationResult, setSimulationResult, payload } = useAcademicStore();
 
-  // MENTORÍA TÉCNICA: Rescatamos el catálogo de la caché de TanStack Query.
-  // Como ya se descargó en la pantalla principal, esto carga al instante.
   const { data: catalogoData } = useQuery({
     queryKey: ['catalogo'],
     queryFn: api.getCatalogo,
     refetchOnWindowFocus: false,
   });
 
-  // PROTECCIÓN DE RUTA
   if (!simulationResult) {
     return <Navigate to="/" replace />;
   }
@@ -27,7 +24,6 @@ export function Resultados() {
     navigate('/');
   };
 
-  // Función de Enriquecimiento: Busca el semestre original más bajo del bloque
   const getSemestreAncla = (materiasSimuladas: any[]) => {
     if (!catalogoData?.catalogo) return 99;
 
@@ -42,15 +38,85 @@ export function Resultados() {
     return Math.min(...semestresOriginales);
   };
 
+  const getPeriodoInicial = () => {
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = hoy.getMonth(); // Enero = 0, Diciembre = 11
+    const day = hoy.getDate();
+
+    const despuesPrimeraSemanaDiciembre = month === 11 && day > 7;
+    const antesUltimaSemanaEnero = month === 0 && day < 25;
+
+    const despuesPrimeraSemanaJunio = month === 5 && day > 7;
+    const antesPrimeraSemanaAgosto = month === 7 && day <= 7;
+
+    const entreJunioYAgosto =
+      despuesPrimeraSemanaJunio || month === 6 || antesPrimeraSemanaAgosto;
+
+    if (despuesPrimeraSemanaDiciembre) {
+      return {
+        year: year + 1,
+        periodo: '01' as const,
+      };
+    }
+
+    if (antesUltimaSemanaEnero) {
+      return {
+        year,
+        periodo: '01' as const,
+      };
+    }
+
+    if (entreJunioYAgosto) {
+      return {
+        year,
+        periodo: '03' as const,
+      };
+    }
+
+    if (month >= 1 && month <= 5) {
+      return {
+        year,
+        periodo: '03' as const,
+      };
+    }
+
+    return {
+      year: year + 1,
+      periodo: '01' as const,
+    };
+  };
+
+  const getPeriodoAcademico = (
+    periodoInicial: { year: number; periodo: '01' | '03' },
+    index: number,
+  ) => {
+    let year = periodoInicial.year;
+    let periodo = periodoInicial.periodo;
+
+    for (let i = 0; i < index; i++) {
+      if (periodo === '01') {
+        periodo = '03';
+      } else {
+        periodo = '01';
+        year += 1;
+      }
+    }
+
+    return `${year}-${periodo}`;
+  };
+
+  const periodoInicial = getPeriodoInicial();
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans py-8 px-4 md:px-8">
-      <div className="max-w-5xl mx-auto w-full flex flex-col gap-8">
-        {/* HEADER LIMPIO Y VERTICAL */}
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans py-8 px-4 md:px-8 print-page">
+      <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 print-container">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-6">
           <div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tight">
               Ruta de Graduación
             </h1>
+
             <p className="text-slate-500 mt-2 font-medium">
               Proyección optimizada en{' '}
               <span className="text-blue-600 font-bold">
@@ -60,7 +126,7 @@ export function Resultados() {
             </p>
           </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
+          <div className="flex gap-3 w-full md:w-auto print-hide">
             <button
               onClick={handleReiniciar}
               className="flex-1 md:flex-none text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 font-bold text-sm px-4 py-2.5 rounded-xl transition-colors text-center"
@@ -77,7 +143,6 @@ export function Resultados() {
           </div>
         </header>
 
-        {/* ALERTA DE DEADLOCK */}
         {!resumen.graduacion_alcanzada && (
           <div className="p-5 rounded-2xl bg-orange-50 border border-orange-200 flex items-start gap-4 shadow-sm">
             <span className="text-3xl">🚧</span>
@@ -95,30 +160,33 @@ export function Resultados() {
           </div>
         )}
 
-        {/* LÍNEA DE TIEMPO VERTICAL */}
         <div className="flex flex-col gap-10">
           {trayectoria.map((semestre, index) => {
-            // Calculamos el semestre ancla dinámicamente para este bloque
             const semestreAncla = getSemestreAncla(semestre.materias);
+
             const tituloSemestre =
               semestreAncla !== 99
                 ? semestreAncla
                 : semestre.semestre_simulado;
 
+            const periodoAcademico = getPeriodoAcademico(
+              periodoInicial,
+              index,
+            );
+
             return (
               <section
                 key={semestre.semestre_simulado}
-                className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 print-section"
               >
-                {/* ENCABEZADO RESTAURADO: Semestre X (Etapa de proyección Y) */}
-                <div className="flex justify-between items-center bg-slate-800 text-white px-5 py-3 rounded-xl shadow-sm">
-                  <div className="flex items-baseline gap-3">
+                <div className="flex justify-between items-center bg-slate-800 text-white px-5 py-3 rounded-xl shadow-sm print-semester-header">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     <h2 className="text-lg font-bold">
                       Semestre {tituloSemestre}
                     </h2>
 
-                    <span className="text-xs text-slate-400 font-normal hidden sm:inline-block">
-                      (Etapa de proyección {index + 1})
+                    <span className="text-lg font-bold">
+                      · {periodoAcademico}
                     </span>
                   </div>
 
@@ -127,8 +195,7 @@ export function Resultados() {
                   </span>
                 </div>
 
-                {/* Grid de Tarjetas de Materias */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print-grid">
                   {semestre.materias.map((materia) => {
                     const isCritica = materia.es_critica;
                     const isFlexible = materia.requiere_avance_flexible;
@@ -138,13 +205,15 @@ export function Resultados() {
                     return (
                       <article
                         key={materia.codigo}
-                        className={`flex flex-col p-5 rounded-xl border transition-all shadow-sm bg-white
+                        className={`flex flex-col p-5 rounded-xl border transition-all shadow-sm bg-white print-card
                           ${
                             isCritica
                               ? 'border-red-300 ring-1 ring-red-100'
                               : isFlexible
                                 ? 'border-amber-400 bg-amber-50/30'
-                                : 'border-slate-200 hover:border-blue-300'
+                                : isPrioritaria
+                                  ? 'border-purple-300 ring-1 ring-purple-100'
+                                  : 'border-slate-200 hover:border-blue-300'
                           }
                         `}
                       >
@@ -224,7 +293,6 @@ export function Resultados() {
             );
           })}
 
-          {/* META: Graduación Alcanzada */}
           {resumen.graduacion_alcanzada && (
             <div className="mt-4 p-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl text-white text-center shadow-lg transform transition-transform hover:scale-[1.01]">
               <span className="text-5xl block mb-4">🎓</span>
