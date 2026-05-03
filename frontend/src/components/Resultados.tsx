@@ -260,7 +260,7 @@ export function Resultados() {
                         : 'bg-slate-700 text-blue-200'
                     }`}
                   >
-                    {requiereExtracredito && '💳 '}
+                    {requiereExtracredito}
                     {semestre.creditos_matriculados} créditos
                   </span>
                 </div>
