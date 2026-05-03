@@ -205,7 +205,7 @@ export function Home() {
     }
 
     const value = Number(rawValue);
-    const limitedValue = Math.max(0, Math.min(21, value));
+    const limitedValue = Math.max(7, Math.min(21, value));
 
     updatePayload({
       max_creditos: limitedValue,
@@ -462,7 +462,7 @@ export function Home() {
                 <input
                   id="max_creditos"
                   type="number"
-                  min={0}
+                  min={7}
                   max={21}
                   value={payload.max_creditos}
                   onChange={handleMaxCreditosChange}
