@@ -9,6 +9,8 @@ import { useAcademicStore } from "../store/academicStore";
 const LIMITE_BASE_CREDITOS = 17;
 const PRECIO_EXTRACREDITO_URL =
   "https://www.uninorte.edu.co/documents/19420483/68546913/Tarifas+derechos+pecuniarios+en+la+web+-+ajustado+2026+marzo+20+%281%29.pdf/9977c107-9cad-6a7a-925b-88e2393b5f49?t=1775593952436";
+const AVANCE_FLEXIBLE_VIDEO_URL = "https://www.youtube.com/watch?v=fPw8G3YfclY";
+const AVANCE_FLEXIBLE_PDF_URL = "/docs/Avance Flexible 202610.pdf";
 
 export function Home() {
   const {
@@ -607,9 +609,29 @@ export function Home() {
                   Permite al algoritmo saltar ciertos prerrequisitos si cumples
                   con las condiciones. Ideal para adelantar materias.
                 </p>
+
+                <div className="mt-2 pl-2 flex items-center gap-4 text-xs whitespace-nowrap">
+                  <a
+                    href={AVANCE_FLEXIBLE_VIDEO_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-amber-800 underline hover:text-amber-900"
+                  >
+                    Video explicativo
+                  </a>
+
+                  <a
+                    href={AVANCE_FLEXIBLE_PDF_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-amber-800 underline hover:text-amber-900"
+                  >
+                    PDF informativo
+                  </a>
+                </div>
               </div>
 
-              <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0 self-start">
+              <label className="relative inline-flex items-center cursor-pointer ml-1 shrink-0 self-start">
                 <input
                   type="checkbox"
                   className="sr-only peer"
