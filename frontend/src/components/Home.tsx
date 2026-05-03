@@ -203,7 +203,7 @@ export function Home() {
     }
 
     const value = Number(rawValue);
-    const limitedValue = Math.max(0, Math.min(23, value));
+    const limitedValue = Math.max(0, Math.min(21, value));
 
     updatePayload({
       max_creditos: limitedValue,
@@ -461,7 +461,7 @@ export function Home() {
                   id="max_creditos"
                   type="number"
                   min={0}
-                  max={23}
+                  max={21}
                   value={payload.max_creditos}
                   onChange={handleMaxCreditosChange}
                   className="
@@ -511,114 +511,115 @@ export function Home() {
             </div>
           </div>
 
-          <div
-            className={`flex items-center justify-between p-4 rounded-xl border ${
-              payload.max_creditos > LIMITE_BASE_CREDITOS
-                ? "bg-cyan-50/60 border-cyan-200"
-                : "bg-slate-50 border-slate-200"
-            }`}
-          >
-            <div className="pr-4 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3
-                  className={`text-sm font-bold flex items-center gap-2 ${
+          <hr className="border-slate-100" />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div
+              className={`flex items-center justify-between p-4 rounded-xl border ${
+                payload.max_creditos > LIMITE_BASE_CREDITOS
+                  ? "bg-cyan-50/60 border-cyan-200"
+                  : "bg-slate-50 border-slate-200"
+              }`}
+            >
+              <div className="pr-4 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3
+                    className={`text-sm font-bold flex items-center gap-2 ${
+                      payload.max_creditos > LIMITE_BASE_CREDITOS
+                        ? "text-cyan-900"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    💳 Extracrédito
+                  </h3>
+                </div>
+
+                <p
+                  className={`text-xs mt-1 ${
                     payload.max_creditos > LIMITE_BASE_CREDITOS
-                      ? "text-cyan-900"
+                      ? "text-cyan-800"
                       : "text-slate-500"
                   }`}
                 >
-                  💳 Extracrédito
+                  Más de 17 créditos implica pago de extracrédito.
+                </p>
+
+                <div
+                  className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${
+                    payload.max_creditos > LIMITE_BASE_CREDITOS
+                      ? "text-cyan-800"
+                      : "text-slate-500"
+                  }`}
+                >
+                  <span>
+                    <span className="font-semibold">Extracréditos:</span>{" "}
+                    {extracreditos}
+                  </span>
+
+                  <span>
+                    <a
+                      href={PRECIO_EXTRACREDITO_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`font-semibold underline ${
+                        payload.max_creditos > LIMITE_BASE_CREDITOS
+                          ? "text-cyan-700"
+                          : "text-slate-600"
+                      }`}
+                    >
+                      Valor actual
+                    </a>
+                  </span>
+                </div>
+              </div>
+
+              <label
+                title={
+                  payload.max_creditos <= LIMITE_BASE_CREDITOS
+                    ? "Disponible al superar 17 créditos por semestre."
+                    : "Desactivar extracrédito"
+                }
+                className={`relative inline-flex items-center ml-4 shrink-0 self-start ${
+                  payload.max_creditos > LIMITE_BASE_CREDITOS
+                    ? "cursor-pointer"
+                    : "cursor-not-allowed opacity-60"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={extracreditoActivo}
+                  disabled={payload.max_creditos <= LIMITE_BASE_CREDITOS}
+                  onChange={(e) => handleExtracreditoChange(e.target.checked)}
+                />
+
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600 peer-disabled:bg-slate-200"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
+              <div className="pr-4 flex-1">
+                <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                  ⚡ Habilitar Avance Flexible
                 </h3>
+
+                <p className="text-xs text-amber-700 mt-1 pl-2">
+                  Permite al algoritmo saltar ciertos prerrequisitos si cumples
+                  con las condiciones. Ideal para adelantar materias.
+                </p>
               </div>
 
-              <p
-                className={`text-xs mt-1 ${
-                  payload.max_creditos > LIMITE_BASE_CREDITOS
-                    ? "text-cyan-800"
-                    : "text-slate-500"
-                }`}
-              >
-                Más de 17 créditos por semestre implica pago de extracrédito.
-              </p>
+              <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0 self-start">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={isFlexibleMode}
+                  onChange={(e) => setFlexibleMode(e.target.checked)}
+                />
 
-              <div
-                className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${
-                  payload.max_creditos > LIMITE_BASE_CREDITOS
-                    ? "text-cyan-800"
-                    : "text-slate-500"
-                }`}
-              >
-                <span>
-                  <span className="font-semibold">Extracréditos:</span>{" "}
-                  {extracreditos}
-                </span>
-
-                <span>
-                  <span className="font-semibold">Valor actual:</span>{" "}
-                  <a
-                    href={PRECIO_EXTRACREDITO_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`font-semibold underline ${
-                      payload.max_creditos > LIMITE_BASE_CREDITOS
-                        ? "text-cyan-700"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    consultar enlace
-                  </a>
-                </span>
-              </div>
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
             </div>
-
-            <label
-              title={
-                payload.max_creditos <= LIMITE_BASE_CREDITOS
-                  ? "Disponible al superar 17 créditos por semestre."
-                  : "Desactivar extracrédito"
-              }
-              className={`relative inline-flex items-center ml-4 shrink-0 ${
-                payload.max_creditos > LIMITE_BASE_CREDITOS
-                  ? "cursor-pointer"
-                  : "cursor-not-allowed opacity-60"
-              }`}
-            >
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={extracreditoActivo}
-                disabled={payload.max_creditos <= LIMITE_BASE_CREDITOS}
-                onChange={(e) => handleExtracreditoChange(e.target.checked)}
-              />
-
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600 peer-disabled:bg-slate-200"></div>
-            </label>
-          </div>
-
-          <hr className="border-slate-100" />
-
-          <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
-            <div>
-              <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
-                ⚡ Habilitar Avance Flexible
-              </h3>
-
-              <p className="text-xs text-amber-700 mt-1">
-                Permite al algoritmo saltar ciertos prerrequisitos si cumples
-                con las condiciones. Ideal para adelantar materias.
-              </p>
-            </div>
-
-            <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={isFlexibleMode}
-                onChange={(e) => setFlexibleMode(e.target.checked)}
-              />
-
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-            </label>
           </div>
 
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
