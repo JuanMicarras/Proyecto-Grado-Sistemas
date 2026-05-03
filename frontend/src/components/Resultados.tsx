@@ -3,6 +3,10 @@ import { useAcademicStore } from '../store/academicStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 
+const CENTRO_ATENCION_URL = 'https://uninorte.my.site.com/general/s/';
+const CITA_COORDINADORA_URL =
+  'https://bookings.cloud.microsoft/book/AsesoraaestudiantesPIST@uninorte.edu.co/?ae=true&login_hint&ismsaljsauthenabled=true';
+
 export function Resultados() {
   const navigate = useNavigate();
   const { simulationResult, setSimulationResult, payload } = useAcademicStore();
@@ -56,49 +60,49 @@ export function Resultados() {
     if (despuesPrimeraSemanaDiciembre) {
       return {
         year: year + 1,
-        periodo: '01' as const,
+        periodo: '10' as const,
       };
     }
 
     if (antesUltimaSemanaEnero) {
       return {
         year,
-        periodo: '01' as const,
+        periodo: '10' as const,
       };
     }
 
     if (entreJunioYAgosto) {
       return {
         year,
-        periodo: '03' as const,
+        periodo: '30' as const,
       };
     }
 
     if (month >= 1 && month <= 5) {
       return {
         year,
-        periodo: '03' as const,
+        periodo: '30' as const,
       };
     }
 
     return {
       year: year + 1,
-      periodo: '01' as const,
+      periodo: '10' as const,
     };
   };
 
   const getPeriodoAcademico = (
-    periodoInicial: { year: number; periodo: '01' | '03' },
+    periodoInicial: { year: number; periodo: '10' | '30' },
     index: number,
   ) => {
     let year = periodoInicial.year;
     let periodo = periodoInicial.periodo;
 
     for (let i = 0; i < index; i++) {
-      if (periodo === '01') {
-        periodo = '03';
+      if (periodo === '10') {
+        periodo = '30';
       } else {
-        periodo = '01';
+        periodo = '10';
         year += 1;
       }
     }
@@ -143,6 +147,58 @@ export function Resultados() {
           </div>
         </header>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print-hide">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-5 flex flex-col gap-3 shadow-sm">
+            <div>
+              <h3 className="text-base font-bold text-blue-900 flex items-center gap-2">
+                📝 Solicitudes académicas
+              </h3>
+
+              <p className="text-sm text-blue-800 mt-1 leading-relaxed">
+                Si necesitas realizar solicitudes académicas durante el período
+                de matrículas, puedes gestionarlas a través del Centro de
+                Atención de la Universidad.
+              </p>
+            </div>
+
+            <div>
+              <a
+                href={CENTRO_ATENCION_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
+              >
+                Ir al Centro de Atención
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-5 flex flex-col gap-3 shadow-sm">
+            <div>
+              <h3 className="text-base font-bold text-purple-900 flex items-center gap-2">
+                🎓 Orientación académica
+              </h3>
+
+              <p className="text-sm text-purple-800 mt-1 leading-relaxed">
+                Si deseas una orientación más detallada sobre tu ruta académica,
+                puedes consultar la disponibilidad y agendar una cita con la
+                coordinadora académica.
+              </p>
+            </div>
+
+            <div>
+              <a
+                href={CITA_COORDINADORA_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 underline hover:text-purple-900"
+              >
+                Reservar cita con la coordinadora
+              </a>
+            </div>
+          </div>
+        </div>
+
         {!resumen.graduacion_alcanzada && (
           <div className="p-5 rounded-2xl bg-orange-50 border border-orange-200 flex items-start gap-4 shadow-sm">
             <span className="text-3xl">🚧</span>
@@ -174,6 +230,8 @@ export function Resultados() {
               index,
             );
 
+            const requiereExtracredito = semestre.creditos_matriculados > 17;
+
             return (
               <section
                 key={semestre.semestre_simulado}
@@ -190,7 +248,19 @@ export function Resultados() {
                     </span>
                   </div>
 
-                  <span className="text-sm font-bold bg-slate-700 px-3 py-1 rounded-lg text-blue-200">
+                  <span
+                    title={
+                      requiereExtracredito
+                        ? 'Se requiere pagar extracrédito.'
+                        : undefined
+                    }
+                    className={`text-sm font-bold px-3 py-1 rounded-lg transition-all ${
+                      requiereExtracredito
+                        ? 'bg-cyan-100 text-cyan-800 border border-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.25)] cursor-help'
+                        : 'bg-slate-700 text-blue-200'
+                    }`}
+                  >
+                    {requiereExtracredito && '💳 '}
                     {semestre.creditos_matriculados} créditos
                   </span>
                 </div>
