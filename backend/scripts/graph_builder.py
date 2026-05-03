@@ -110,24 +110,29 @@ class CurricularGraphBuilder:
         print("Grafo curricular construido y optimizado exitosamente.")
 
 if __name__ == "__main__":
-    URI = "bolt://localhost:7687"
-    USER = "neo4j"
-    PASSWORD = "tesis123" # Inyectar por variables de entorno en Producción
+    from dotenv import load_dotenv
+    import os
     
-    # 1. Obtiene la ruta del archivo actual: backend/scripts/graph_builder.py
-    # 2. .parent sube a 'scripts/'
-    # 3. .parent sube a 'backend/' (la raíz de tu proyecto)
+    # Cargar las variables del archivo .env
+    load_dotenv()
+    
+    # Leer las variables (si no existen, usa un valor por defecto o lanza error)
+    URI = os.getenv("NEO4J_URI")
+    USER = os.getenv("NEO4J_USER")
+    PASSWORD = os.getenv("NEO4J_PASSWORD")
+    
+    if not PASSWORD:
+        print("ERROR: No se encontró la contraseña en el archivo .env")
+        exit(1)
+
     BASE_DIR = Path(__file__).resolve().parent.parent
-    # Resolver ruta absoluta para evitar problemas con CWD
-    # 4. Construye la ruta hacia la carpeta data
-    # Esto genera automáticamente: C:\Users\juanm\...\backend\data\malla_sistemas_nuevo.csv
+    BASE_DIR = Path(__file__).resolve().parent.parent
     ruta_csv = BASE_DIR / "data" / "malla_sistemas_nuevo.csv"
 
-    # 5. Ahora SÍ puedes usar .exists() porque ruta_csv es un Objeto Path
     if not ruta_csv.exists():
         print(f"ERROR: No se encontró el archivo en: {ruta_csv}")
-        # Opcional: listar qué hay en la carpeta data para depurar
         exit(1)
+        
     print(f"Archivo encontrado exitosamente: {ruta_csv}")
     builder = CurricularGraphBuilder(URI, USER, PASSWORD)
     builder.build_graph(ruta_csv)
