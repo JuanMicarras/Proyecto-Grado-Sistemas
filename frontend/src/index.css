@@ -5,6 +5,26 @@
   box-sizing: border-box;
 }
 
+/* Cursor pointer global para elementos interactivos */
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]),
+summary,
+select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+label:has(input:not(:disabled)) {
+  cursor: pointer;
+}
+
+/* Mantener cursor correcto en elementos deshabilitados */
+button:disabled,
+input:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Estilos para impresión / Guardar como PDF */
 @media print {
   * {
