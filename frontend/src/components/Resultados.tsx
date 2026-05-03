@@ -138,7 +138,7 @@ export function Resultados() {
               onClick={() => window.print()}
               className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-transform active:scale-95 flex items-center justify-center gap-2"
             >
-              🖨️ Guardar PDF
+              Guardar PDF
             </button>
           </div>
         </header>
