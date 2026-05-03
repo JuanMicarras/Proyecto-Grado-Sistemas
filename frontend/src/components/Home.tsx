@@ -684,11 +684,11 @@ export function Home() {
                     >
                       <div>
                         <span className="font-bold text-slate-800 block">
-                          {materia.codigo}
+                          {materia.nombre}
                         </span>
 
                         <span className="text-slate-500 text-xs">
-                          {materia.nombre}
+                          {materia.codigo}
                         </span>
                       </div>
 
