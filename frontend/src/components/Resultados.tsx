@@ -271,19 +271,22 @@ export function Resultados() {
                     const isFlexible = materia.requiere_avance_flexible;
                     const isPrioritaria =
                       payload.materias_prioritarias.includes(materia.codigo);
+                    const isPractica = materia.codigo === "PML4130";
 
                     return (
                       <article
                         key={materia.codigo}
                         className={`flex flex-col p-5 rounded-xl border transition-all shadow-sm bg-white print-card
                           ${
-                            isCritica
-                              ? 'border-red-300 ring-1 ring-red-100'
-                              : isFlexible
-                                ? 'border-amber-400 bg-amber-50/30'
-                                : isPrioritaria
-                                  ? 'border-purple-300 ring-1 ring-purple-100'
-                                  : 'border-slate-200 hover:border-blue-300'
+                            isPractica
+                              ? 'border-emerald-400 bg-emerald-50/30 ring-1 ring-emerald-100'
+                              : isCritica
+                                ? 'border-red-300 ring-1 ring-red-100'
+                                : isFlexible
+                                  ? 'border-amber-400 bg-amber-50/30'
+                                  : isPrioritaria
+                                    ? 'border-purple-300 ring-1 ring-purple-100'
+                                    : 'border-slate-200 hover:border-blue-300'
                           }
                         `}
                       >
@@ -291,19 +294,28 @@ export function Resultados() {
                           <span
                             className={`font-mono text-xs font-bold tracking-widest 
                             ${
-                              isCritica
-                                ? 'text-red-500'
-                                : isFlexible
-                                  ? 'text-amber-600'
-                                  : isPrioritaria
-                                    ? 'text-purple-500'
-                                    : 'text-slate-400'
+                              isPractica
+                                ? 'text-emerald-600'
+                                : isCritica
+                                  ? 'text-red-500'
+                                  : isFlexible
+                                    ? 'text-amber-600'
+                                    : isPrioritaria
+                                      ? 'text-purple-500'
+                                      : 'text-slate-400'
                             }`}
                           >
                             {materia.codigo}
                           </span>
 
+                          {/* Contenedor Flexbox Mobile-First */}
                           <div className="flex gap-1.5 flex-wrap justify-end">
+                            {isPractica && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-sm">
+                                💼 Práctica
+                              </span>
+                            )}
+
                             {isFlexible && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 shrink-0 shadow-sm">
                                 ⚡ Adelanto
@@ -327,13 +339,15 @@ export function Resultados() {
                         <h3
                           className={`text-base font-bold leading-tight mb-4 
                           ${
-                            isCritica
-                              ? 'text-slate-800'
-                              : isFlexible
-                                ? 'text-amber-900'
-                                : isPrioritaria
-                                  ? 'text-purple-950'
-                                  : 'text-slate-700'
+                            isPractica
+                              ? 'text-emerald-900'
+                              : isCritica
+                                ? 'text-slate-800'
+                                : isFlexible
+                                  ? 'text-amber-900'
+                                  : isPrioritaria
+                                    ? 'text-purple-950'
+                                    : 'text-slate-700'
                           }`}
                         >
                           {materia.nombre}
@@ -343,13 +357,15 @@ export function Resultados() {
                           <span
                             className={`px-2.5 py-1 rounded-md text-xs font-bold 
                             ${
-                              isCritica
-                                ? 'bg-red-50 text-red-700'
-                                : isFlexible
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : isPrioritaria
-                                    ? 'bg-purple-50 text-purple-700'
-                                    : 'bg-slate-100 text-slate-600'
+                              isPractica
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : isCritica
+                                  ? 'bg-red-50 text-red-700'
+                                  : isFlexible
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : isPrioritaria
+                                      ? 'bg-purple-50 text-purple-700'
+                                      : 'bg-slate-100 text-slate-600'
                             }`}
                           >
                             {materia.creditos} cr

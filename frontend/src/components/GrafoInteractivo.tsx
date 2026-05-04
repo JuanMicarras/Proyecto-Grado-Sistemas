@@ -270,8 +270,16 @@ export function GrafoInteractivo() {
 
   useEffect(() => {
     if (graphResponse?.grafo) {
-      const { nodes: rawNodes, edges: rawEdges } = graphResponse.grafo;
+      // const { nodes: rawNodes, edges: rawEdges } = graphResponse.grafo;
       const materiasPorSemestre: Record<number, any[]> = {};
+
+      const CODIGO_PRACTICA = "PML4130";
+
+      // Mentoría Técnica: Purgamos el nodo y cualquier flecha asociada a él para mantener la topología intacta.
+      const rawNodes = graphResponse.grafo.nodes.filter((n: any) => n.id !== CODIGO_PRACTICA);
+      const rawEdges = graphResponse.grafo.edges.filter((e: any) => 
+        e.source !== CODIGO_PRACTICA && e.target !== CODIGO_PRACTICA
+      );
 
       rawNodes.forEach((node: any) => {
         const nivel = node.data.nivel || 1;

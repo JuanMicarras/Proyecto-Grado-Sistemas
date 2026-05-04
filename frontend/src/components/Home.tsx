@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAcademicStore } from "../store/academicStore";
 
 const LIMITE_BASE_CREDITOS = 17;
+const CODIGO_PRACTICA = "PML4130";
 const PRECIO_EXTRACREDITO_URL =
   "https://www.uninorte.edu.co/documents/19420483/68546913/Tarifas+derechos+pecuniarios+en+la+web+-+ajustado+2026+marzo+20+%281%29.pdf/9977c107-9cad-6a7a-925b-88e2393b5f49?t=1775593952436";
 const AVANCE_FLEXIBLE_VIDEO_URL = "https://www.youtube.com/watch?v=fPw8G3YfclY";
@@ -94,6 +95,7 @@ export function Home() {
     return catalogoData.catalogo
       .filter(
         (m) =>
+          m.codigo !== CODIGO_PRACTICA &&
           (m.nombre.toLowerCase().includes(term) ||
             m.codigo.toLowerCase().includes(term)) &&
           !payload.aprobadas.includes(m.codigo) &&
@@ -180,7 +182,9 @@ export function Home() {
   const semestresAgrupados = useMemo(() => {
     if (!catalogoData?.catalogo) return [];
 
-    const grupos = catalogoData.catalogo.reduce(
+    const grupos = catalogoData.catalogo
+    .filter((m) => m.codigo !== CODIGO_PRACTICA)
+    .reduce(
       (acc, materia) => {
         const sem = materia.semestre || 0;
 
