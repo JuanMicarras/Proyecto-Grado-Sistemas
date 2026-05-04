@@ -49,11 +49,11 @@ class PathOptimizer:
         # W_semestre: Penaliza fuertemente materias atrasadas.
         # W_dificultad: Positivo si queremos salir de lo difícil rápido, negativo si queremos un semestre suave.
         if perfil_estudiante == "agresivo":
-            w_semestre, w_dificultad = -10.0, 2.0 
+            w_semestre, w_dificultad = -10.0, 1.0 
         elif perfil_estudiante == "suave":
-            w_semestre, w_dificultad = -10.0, -2.0
+            w_semestre, w_dificultad = -10.0, -20.0
         else: # balanceado
-            w_semestre, w_dificultad = -10.0, 0.0
+            w_semestre, w_dificultad = -10.0, -10.0
 
         # 3. Función de Evaluación (Fitness) O(N)
         # Calculamos un "Priority Score" (mayor es mejor)

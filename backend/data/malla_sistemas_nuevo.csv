@@ -11,16 +11,16 @@ IST2089,Algoritmia y Programacion II,3,IST2088,2,Obligatoria,,1,0
 CAS3030,Competencias Comunicativas II,3,CAS3020,2,Obligatoria,,1,0
 ELG1130,Electiva en Humanidades,3,,3,Electiva,,1,0
 MAT1121,Calculo III,4,MAT1031;MAT1111,3,Obligatoria,,1,0
-FIS1043,Fisica Calor Ondas,4,FIS1023;MAT1101,3,Obligatoria,,1,0
+FIS1043,Fisica Calor Ondas,4,FIS1023;MAT1101,3,Obligatoria,,3,0
 IST4021,Estructura de Datos I,3,IST2089,3,Obligatoria,,1,0
 IST2110,Programacion Orientada a Objetos,3,IST2089,3,Obligatoria,,1,0
 ELG1150,Electiva en Ciencias de la vida,3,,4,Electiva,,1,0
-MAT4011,Ecuaciones Diferenciales,3,MAT1111,4,Obligatoria,,1,0
-FIS1033,Fisica Electricidad,4,FIS1023;MAT1111,4,Obligatoria,,1,0
+MAT4011,Ecuaciones Diferenciales,3,MAT1111,4,Obligatoria,,3,0
+FIS1033,Fisica Electricidad,4,FIS1023;MAT1111,4,Obligatoria,,3,0
 IST4031,Estructura de Datos II,3,IST4021,4,Obligatoria,,1,0
 MAT4021,Matematicas Discretas,3,,4,Obligatoria,,1,0
 ELG0007,Electiva en Ciencias Básicas,3,,5,Obligatoria,,1,0
-EST7042,Análisis de Datos en Ingenieria I,4,MAT1111,5,Obligatoria,,1,0
+EST7042,Análisis de Datos en Ingenieria I,4,MAT1111,5,Obligatoria,,3,0
 IST4310,Algoritmos y Complejidad,3,IST4031,5,Obligatoria,,1,0
 IST4330,Estructuras Discretas,3,MAT4021,5,Obligatoria,,1,0
 IST7072,Diseño Digital,3,MAT4021,5,Obligatoria,,1,0
@@ -40,7 +40,7 @@ ELG1190,Electiva en Ciencias Sociales,3,,8,Electiva,,1,0
 ELG1301,Electiva Profesional I,3,,8,Obligatoria,,1,0
 IST7122,Diseño de Software II,3,IST7121,8,Obligatoria,,1,0
 ELG1302,Electiva en Redes,2,IST7191,8,Obligatoria,,1,0
-IST7410,Compiladores,3,IST2110;IST4031,8,Obligatoria,,1,0
+IST7410,Compiladores,3,IST2110;IST4031,8,Obligatoria,,3,0
 ELG8400,Electiva Innovacion DLLO y SOC,3,,8,Electiva,,1,0
 ELG1160,Electiva en Filosofía ,3,,9,Electiva,,1,0
 ELG1305,Electiva Profesional II,3,,9,Obligatoria,,1,0
