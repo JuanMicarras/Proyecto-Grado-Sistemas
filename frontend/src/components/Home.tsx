@@ -15,7 +15,6 @@ const AVANCE_FLEXIBLE_PDF_URL = "/docs/Avance Flexible 202610.pdf";
 export function Home() {
   const {
     payload,
-    toggleMateria,
     updatePayload,
     setSimulationResult,
     isFlexibleMode,
@@ -64,6 +63,29 @@ export function Home() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: graphResponse } = useQuery({
+    queryKey: ['grafo-topologia'],
+    queryFn: () => fetch("http://localhost:8000/api/v1/malla-visual").then(res => res.json()),
+    refetchOnWindowFocus: false,
+  });
+  const topologia = useMemo(() => {
+    const reqMap: Record<string, string[]> = {}; // Mapa de: "Materia -> Prerrequisitos que necesita"
+    const depMap: Record<string, string[]> = {}; // Mapa de: "Materia -> Materias a las que desbloquea"
+
+    if (graphResponse?.grafo?.edges) {
+      graphResponse.grafo.edges.forEach((edge: any) => {
+        const { source, target } = edge; // source = requisito, target = materia que lo pide
+        
+        if (!reqMap[target]) reqMap[target] = [];
+        reqMap[target].push(source);
+
+        if (!depMap[source]) depMap[source] = [];
+        depMap[source].push(target);
+      });
+    }
+    return { reqMap, depMap };
+  }, [graphResponse]);
+
   const resultadosBusqueda = useMemo(() => {
     if (!searchTerm || !catalogoData?.catalogo) return [];
 
@@ -84,6 +106,50 @@ export function Home() {
     payload.aprobadas,
     payload.materias_prioritarias,
   ]);
+
+  const handleToggleInteligente = (codigo: string) => {
+    const isAprobada = payload.aprobadas.includes(codigo);
+
+    if (!isAprobada) {
+      const prerrequisitos = topologia.reqMap[codigo] || [];
+      const faltantes = prerrequisitos.filter(req => !payload.aprobadas.includes(req));
+
+      if (faltantes.length > 0) {
+        const nombresFaltantes = faltantes.map(cod => 
+          catalogoData?.catalogo.find(m => m.codigo === cod)?.nombre || cod
+        );
+        alert(`🔒 Prerrequisitos incompletos.\n\nPara cursar ${codigo}, primero debes aprobar:\n• ${nombresFaltantes.join('\n• ')}`);
+        return; // Interceptamos y cancelamos la acción
+      }
+
+      updatePayload({ aprobadas: [...payload.aprobadas, codigo] });
+
+    } else {
+      const aEliminar = new Set<string>([codigo]);
+      const cola = [codigo];
+
+      while (cola.length > 0) {
+        const actual = cola.shift()!;
+        const dependientes = topologia.depMap[actual] || [];
+
+        dependientes.forEach(dep => {
+          if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
+            aEliminar.add(dep);
+            cola.push(dep); // Lo encolamos para buscar a los hijos de este hijo
+          }
+        });
+      }
+
+      // Feedback visual opcional si eliminó más de 2 materia
+      if (aEliminar.size > 2) {
+        alert(`⚠️ Reacción en cadena:\nAl quitar esta materia, el sistema desmarcó automáticamente ${aEliminar.size - 1} materia(s) dependiente(s).`);
+      }
+
+      updatePayload({
+        aprobadas: payload.aprobadas.filter(c => !aEliminar.has(c))
+      });
+    }
+  };
 
   const togglePrioridad = (codigo: string) => {
     const yaEsta = payload.materias_prioritarias.includes(codigo);
@@ -164,25 +230,60 @@ export function Home() {
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
 
+    // Verificamos si TODAS las materias de este semestre ya están en el payload
     const estanTodasSeleccionadas = codigosSemestre.every((codigo) =>
-      payload.aprobadas.includes(codigo),
+      payload.aprobadas.includes(codigo)
     );
 
     if (estanTodasSeleccionadas) {
+      const aEliminar = new Set<string>(codigosSemestre);
+      const cola = [...codigosSemestre];
+
+      while (cola.length > 0) {
+        const actual = cola.shift()!;
+        const dependientes = topologia.depMap[actual] || [];
+
+        dependientes.forEach(dep => {
+          if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
+            aEliminar.add(dep);
+            cola.push(dep);
+          }
+        });
+      }
+
+      // UX Feedback: Si eliminó materias de OTROS semestres, avisamos.
+      const eliminadasExtra = aEliminar.size - codigosSemestre.length;
+      if (eliminadasExtra > 0) {
+        alert(`⚠️ Reacción en cadena:\nSe desmarcaron ${eliminadasExtra} materia(s) extra de semestres superiores por pérdida de prerrequisitos.`);
+      }
+
       updatePayload({
-        aprobadas: payload.aprobadas.filter(
-          (c) => !codigosSemestre.includes(c),
-        ),
+        aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c)),
       });
     } else {
+      // Filtramos la lista: Solo pasan las que ya estaban, o las que tienen sus prerrequisitos completos
+      const codigosAprobables = codigosSemestre.filter(codigo => {
+        if (payload.aprobadas.includes(codigo)) return true; 
+
+        const prerrequisitos = topologia.reqMap[codigo] || [];
+        const cumpleRequisitos = prerrequisitos.every(req => payload.aprobadas.includes(req));
+        
+        return cumpleRequisitos;
+      });
+
       const unionSinDuplicados = new Set([
         ...payload.aprobadas,
-        ...codigosSemestre,
+        ...codigosAprobables,
       ]);
 
       updatePayload({
         aprobadas: Array.from(unionSinDuplicados),
       });
+      // UX Feedback: Si el algoritmo se negó a seleccionar algunas, le explicamos por qué.
+      if (codigosAprobables.length < codigosSemestre.length) {
+        const omitidas = codigosSemestre.length - codigosAprobables.length;
+        alert(`💡 Selección parcial:\nSe seleccionaron las materias permitidas. Se omitieron ${omitidas} materia(s) porque aún no cumples con sus prerrequisitos.`);
+      }
     }
   };
 
@@ -397,43 +498,56 @@ export function Home() {
 
                   <div className="flex flex-wrap gap-2 mt-1">
                     {grupo.materias.map((materia) => {
-                      const isSelected = payload.aprobadas.includes(
-                        materia.codigo,
-                      );
+                      const isSelected = payload.aprobadas.includes(materia.codigo);
+                      
+                      // Evaluamos si está bloqueada matemáticamente
+                      const prerrequisitos = topologia.reqMap[materia.codigo] || [];
+                      const isLocked = !isSelected && prerrequisitos.some(req => !payload.aprobadas.includes(req));
 
                       return (
                         <button
                           key={materia.codigo}
                           type="button"
-                          onClick={() => toggleMateria(materia.codigo)}
+                          onClick={() => handleToggleInteligente(materia.codigo)}
                           className={`
-                            text-left px-3 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border
-                            ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                            text-left px-3 py-2 rounded-lg text-sm font-medium transition-all border w-full sm:w-auto flex-grow
+                            ${isSelected 
+                                ? "bg-blue-600 text-white border-blue-600 shadow-md active:scale-95" 
+                                : isLocked
+                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale" // <-- ESTILO BLOQUEADO
+                                  : "bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm active:scale-95"
                             }
                           `}
                         >
                           <div className="flex justify-between items-center gap-3">
-                            <span className="block font-bold">
-                              {materia.codigo}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {/* Icono de candado UI Mobile */}
+                              {isLocked && <span className="text-[10px]">🔒</span>}
+                              <span className="block font-bold">
+                                {materia.codigo}
+                              </span>
+                            </div>
 
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                                 isSelected
                                   ? "bg-blue-500 text-white"
-                                  : "bg-slate-200 text-slate-500"
+                                  : isLocked
+                                    ? "bg-slate-200 text-slate-400"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
                               }`}
                             >
-                              {materia.creditos}
+                              {materia.creditos} cr
                             </span>
                           </div>
 
                           <span
                             className={`block text-xs font-normal mt-0.5 ${
-                              isSelected ? "text-blue-100" : "text-slate-400"
+                              isSelected 
+                                ? "text-blue-100" 
+                                : isLocked 
+                                  ? "text-slate-400" 
+                                  : "text-slate-500"
                             }`}
                           >
                             {materia.nombre}
