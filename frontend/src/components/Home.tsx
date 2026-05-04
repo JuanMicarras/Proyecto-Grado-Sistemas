@@ -135,7 +135,7 @@ export function Home() {
         dependientes.forEach(dep => {
           if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
             aEliminar.add(dep);
-            cola.push(dep); // Lo encolamos para buscar a los hijos de este hijo
+            cola.push(dep); 
           }
         });
       }
@@ -230,7 +230,7 @@ export function Home() {
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
 
-    // Verificamos si TODAS las materias de este semestre ya están en el payload
+
     const estanTodasSeleccionadas = codigosSemestre.every((codigo) =>
       payload.aprobadas.includes(codigo)
     );
@@ -261,7 +261,6 @@ export function Home() {
         aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c)),
       });
     } else {
-      // Filtramos la lista: Solo pasan las que ya estaban, o las que tienen sus prerrequisitos completos
       const codigosAprobables = codigosSemestre.filter(codigo => {
         if (payload.aprobadas.includes(codigo)) return true; 
 
@@ -500,7 +499,6 @@ export function Home() {
                     {grupo.materias.map((materia) => {
                       const isSelected = payload.aprobadas.includes(materia.codigo);
                       
-                      // Evaluamos si está bloqueada matemáticamente
                       const prerrequisitos = topologia.reqMap[materia.codigo] || [];
                       const isLocked = !isSelected && prerrequisitos.some(req => !payload.aprobadas.includes(req));
 
@@ -514,14 +512,13 @@ export function Home() {
                             ${isSelected 
                                 ? "bg-blue-600 text-white border-blue-600 shadow-md active:scale-95" 
                                 : isLocked
-                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale" // <-- ESTILO BLOQUEADO
+                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale" 
                                   : "bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm active:scale-95"
                             }
                           `}
                         >
                           <div className="flex justify-between items-center gap-3">
                             <div className="flex items-center gap-1.5">
-                              {/* Icono de candado UI Mobile */}
                               {isLocked && <span className="text-[10px]">🔒</span>}
                               <span className="block font-bold">
                                 {materia.codigo}

@@ -1,4 +1,3 @@
-// src/components/SubjectCard.tsx
 import type { Materia } from '../types/academic';
 
 interface Props {
@@ -6,9 +5,7 @@ interface Props {
 }
 
 export function SubjectCard({ materia }: Props) {
-  // MENTORÍA TÉCNICA: CSS Dinámico basado en datos reales
   const isCritica = materia.es_critica;
-  
   return (
     <div className={`flex flex-col p-4 rounded-xl border shadow-sm transition-all ${
       isCritica ? 'border-red-400 bg-red-50' : 'border-slate-200 bg-white'

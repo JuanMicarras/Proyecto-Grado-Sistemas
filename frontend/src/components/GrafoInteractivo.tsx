@@ -16,12 +16,9 @@ import "@xyflow/react/dist/style.css";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
-import { useAcademicStore } from "../store/academicStore";
+import { useAcademicStore} from "../store/academicStore";
 import { api } from "../api/client";
 
-// ============================================================================
-// 1. COMPONENTE DE NODO
-// ============================================================================
 const CustomSubjectNode = ({ data }: { data: any }) => {
   const { isAprobada, isDisponible } = data;
 
@@ -107,12 +104,11 @@ const CustomSubjectNode = ({ data }: { data: any }) => {
 
 const nodeTypes = { customSubject: CustomSubjectNode };
 
-// ============================================================================
-// 2. COMPONENTE PRINCIPAL
-// ============================================================================
+
+
 export function GrafoInteractivo() {
   const navigate = useNavigate();
-  const { payload, toggleMateria } = useAcademicStore();
+  const { payload, toggleMateria, updatePayload } = useAcademicStore();
   const aprobadas = payload.aprobadas;
   const [isExportingImage, setIsExportingImage] = useState(false);
 
@@ -124,7 +120,6 @@ export function GrafoInteractivo() {
       ),
   });
 
-  // SOLUCIÓN 1: Calculamos los créditos en tiempo real dentro del Grafo
   const creditosAcumulados = useMemo(() => {
     if (!graphResponse?.grafo?.nodes) return 0;
 
@@ -137,7 +132,6 @@ export function GrafoInteractivo() {
     }, 0);
   }, [aprobadas, graphResponse]);
 
-  // SOLUCIÓN 1 (Continuación): Inyectamos los créditos reales al llamar a /disponibles
   const payloadConCreditos = useMemo(
     () => ({
       ...payload,
@@ -147,7 +141,6 @@ export function GrafoInteractivo() {
   );
 
   const { data: disponiblesResponse } = useQuery({
-    // Usamos el array de aprobadas y los créditos como llaves de caché para que reaccione instantáneamente
     queryKey: ["materias-disponibles", aprobadas, creditosAcumulados],
     queryFn: () => api.getDisponibles(payloadConCreditos),
     enabled: !!graphResponse,
@@ -158,6 +151,18 @@ export function GrafoInteractivo() {
 
     return disponiblesResponse.disponibles.map((m: any) => m.codigo);
   }, [disponiblesResponse]);
+
+  const depMap = useMemo(() => {
+  const map: Record<string, string[]> = {};
+  if (graphResponse?.grafo?.edges) {
+    graphResponse.grafo.edges.forEach((edge: any) => {
+      // edge.source = Prerrequisito, edge.target = Materia que se bloquea
+      if (!map[edge.source]) map[edge.source] = [];
+      map[edge.source].push(edge.target);
+    });
+  }
+  return map;
+}, [graphResponse]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -327,7 +332,6 @@ export function GrafoInteractivo() {
       setEdges(styledEdges);
     }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphResponse, setNodes, setEdges]);
 
   useEffect(() => {
@@ -383,28 +387,60 @@ export function GrafoInteractivo() {
         </div>
       </header>
 
-      <div className="flex-grow">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          // SOLUCIÓN 2: Solo permitimos el clic si está disponible o si ya la habías aprobado (para quitarla)
-          onNodeClick={(_, node) => {
-            if (node.data.isAprobada || node.data.isDisponible) {
+      return (
+    
+    <div className="flex-grow">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={(_, node) => {
+          const isAprobada = payload.aprobadas.includes(node.id);
+
+          if (!isAprobada) {
+            //Aprobar materia (Solo si está disponible)
+            if (node.data.isDisponible) {
               toggleMateria(node.id);
             }
-          }}
-          nodeTypes={nodeTypes}
-          fitView
-          colorMode="dark"
-          minZoom={0.2}
-        >
+          } else {
+            //Deseleccionar materia (CASCADA BFS)
+            const aEliminar = new Set<string>([node.id]);
+            const cola = [node.id];
+
+            while (cola.length > 0) {
+              const actual = cola.shift()!;
+              const dependientes = depMap[actual] || [];
+
+              dependientes.forEach(dep => {
+                // Solo propagamos si el dependiente está actualmente aprobado
+                if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
+                  aEliminar.add(dep);
+                  cola.push(dep);
+                }
+              });
+            }
+            updatePayload({
+              aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c))
+            });
+            
+            // Opcional: Feedback visual si hubo cascada
+            if (aEliminar.size > 2) {
+              console.log(`[Grafo] Deselección en cascada. Se eliminaron: ${Array.from(aEliminar).join(', ')}`);
+            }
+          }
+        }}
+        
+        nodeTypes={nodeTypes}
+        fitView
+        colorMode="dark"
+        minZoom={0.2}
+      >
           <Background color="#1e293b" gap={24} size={2} />
 
           <Controls className="bg-slate-800 border-slate-700 fill-white" />
 
-          {/* SOLUCIÓN 3: Minimapa configurado explícitamente con los colores Hexadecimales */}
+          {/*Minimapa configurado explícitamente con los colores Hexadecimales */}
           <MiniMap
             nodeColor={(n) => {
               if (n.data.isAprobada) return "#16a34a"; // Verde fuerte

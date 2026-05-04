@@ -1,4 +1,3 @@
-// src/components/GraduationTimeline.tsx
 import type { MateriaCatalogo, SimulatePathResponse } from '../types/academic';
 import { SubjectCard } from './SubjectCard';
 
@@ -15,8 +14,7 @@ export function GraduationTimeline({ data, catalogo, onReset }: Props) {
     const semestresOriginales = materiasSimuladas.map(materiaSim => {
       const materiaReal = catalogo.find(c => c.codigo === materiaSim.codigo);
       return materiaReal?.semestre || 99; // Si por alguna razón no la encuentra, evitamos que rompa el Math.min
-    });
-    
+    }); 
     // Math.min extrae el número más pequeño del array de semestres
     return Math.min(...semestresOriginales);
   };
