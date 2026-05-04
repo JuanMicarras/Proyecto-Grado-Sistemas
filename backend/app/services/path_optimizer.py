@@ -4,7 +4,7 @@ class PathOptimizer:
         # solo conoce la interfaz del repositorio.
         self.repo = repository
 
-    def generar_semestre_optimo(self, aprobadas: list, creditos_acumulados: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None,plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
+    def generar_semestre_optimo(self, aprobadas: list, creditos_acumulados: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None,opcion_practica: bool = False, plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
         """
         Genera el conjunto óptimo de materias a matricular maximizando el avance 
         curricular y respetando la restricción de créditos máximos.
@@ -13,15 +13,22 @@ class PathOptimizer:
             materias_prioritarias = []
         # 1. Obtener espacio de búsqueda válido (O(1) I/O de red, delegando el DAG a la BD)
         disponibles_crudo = self.repo.get_materias_disponibles_pathfinder(aprobadas, creditos_acumulados, plan_id)
-
         if not disponibles_crudo:
             return {"estado": "Sin materias disponibles o carrera finalizada", "seleccion": []}
         
+        if opcion_practica:
+            disponibles_crudo = [m for m in disponibles_crudo if m['codigo'] not in ('ELP4030', 'ELP8090')]
+        else:
+            # Si no quiere práctica, la sacamos del pool de opciones
+            disponibles_crudo = [m for m in disponibles_crudo if m['codigo'] != 'PML4130']
+            
         materias_regulares = [m for m in disponibles_crudo if m['semestre_sugerido'] > 0]
-        semestre_actual = min(m['semestre_sugerido'] for m in disponibles_crudo if m['semestre_sugerido'] > 0)
+        semestre_actual = min((m['semestre_sugerido'] for m in disponibles_crudo if m['semestre_sugerido'] > 0), default=10)
         ventana_maxima = semestre_actual + 2
+        # 2. Bloqueamos la práctica estrictamente hasta llegar al último semestre
+        if opcion_practica:
+            disponibles_crudo = [m for m in disponibles_crudo if not (m['codigo'] == 'PML4130' and semestre_actual < 10)]
 
-        
         # Lógica de Bypass Condicional
         if ignorar_ventana:
             disponibles = disponibles_crudo  # Pasan todas las que cumplan prerrequisitos
@@ -110,7 +117,7 @@ class PathOptimizer:
             "seleccion": seleccion
         }
     
-    def simular_trayectoria_completa(self, aprobadas_iniciales: list, creditos_iniciales: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None, plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
+    def simular_trayectoria_completa(self, aprobadas_iniciales: list, creditos_iniciales: int, max_creditos: int = 17, perfil_estudiante: str = "balanceado", materias_prioritarias: list = None, opcion_practica: bool = False, plan_id: str = "SIST-2024", ignorar_ventana: bool = False) -> dict:
         if materias_prioritarias is None:
             materias_prioritarias = []
         # Aislamiento de variables de estado para no mutar los inputs
@@ -127,6 +134,7 @@ class PathOptimizer:
                 max_creditos=max_creditos,
                 perfil_estudiante=perfil_estudiante,
                 materias_prioritarias=materias_prioritarias,
+                opcion_practica=opcion_practica,
                 plan_id=plan_id,
                 ignorar_ventana=ignorar_ventana,
             )
@@ -148,12 +156,12 @@ class PathOptimizer:
             estado_aprobadas.update(nuevos_codigos)
             estado_creditos += resultado_semestre["estadisticas"]["total_creditos"]
 
-        # Validación final de integridad
+        # Si da prácticas, homologa 2 materias con 1. La meta de nodos baja en 1.
+        meta_nodos_graduacion = total_materias_plan - 2 if opcion_practica else total_materias_plan - 1
         materias_aprobadas_final = len(estado_aprobadas)
-        logro_graduarse = materias_aprobadas_final == total_materias_plan
-
+        logro_graduarse = materias_aprobadas_final >= meta_nodos_graduacion
         estado_simulacion = "Exitoso" if logro_graduarse else "Bloqueo Estructural (Deadlock)"
-        mensaje = "El estudiante proyecta graduarse." if logro_graduarse else f"El estudiante quedó atascado. Aprobó {materias_aprobadas_final}/{total_materias_plan} materias. Revisa el acumulado de créditos o correquisitos imposibles."
+        mensaje = "El estudiante proyecta graduarse." if logro_graduarse else f"El estudiante quedó atascado. Aprobó {materias_aprobadas_final}/{meta_nodos_graduacion} materias. Revisa el acumulado de créditos o correquisitos imposibles."
         return {
             "resumen": {
                 "estado_simulacion": estado_simulacion,

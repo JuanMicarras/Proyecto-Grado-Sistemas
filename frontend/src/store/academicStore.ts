@@ -23,6 +23,7 @@ export const useAcademicStore = create<AcademicStore>((set) => ({
     max_creditos: 17,
     perfil_estudiante: "balanceado",
     materias_prioritarias: [],
+    opcion_practica: false,
     
   },
   isFlexibleMode: false, // Por defecto apagado

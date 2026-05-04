@@ -515,7 +515,12 @@ export function Home() {
 
           <hr className="border-slate-100" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* ============================================================== */}
+          {/* SECCIÓN DE PARÁMETROS AVANZADOS (Grid Layout)                  */}
+          {/* ============================================================== */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* TARJETA 1: Extracrédito (Sin cambios estructurales) */}
             <div
               className={`flex items-center justify-between p-4 rounded-xl border ${
                 payload.max_creditos > LIMITE_BASE_CREDITOS
@@ -523,7 +528,8 @@ export function Home() {
                   : "bg-slate-50 border-slate-200"
               }`}
             >
-              <div className="pr-4 flex-1">
+             {/* ... el contenido interno de extracrédito se mantiene intacto ... */}
+             <div className="pr-4 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3
                     className={`text-sm font-bold flex items-center gap-2 ${
@@ -599,7 +605,9 @@ export function Home() {
               </label>
             </div>
 
+            {/* TARJETA 2: Avance Flexible (Sin cambios estructurales) */}
             <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
+              {/* ... el contenido interno de flexible se mantiene intacto ... */}
               <div className="pr-4 flex-1">
                 <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                   ⚡ Habilitar Avance Flexible
@@ -642,6 +650,31 @@ export function Home() {
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
               </label>
             </div>
+
+            {/* NUEVA TARJETA 3: Práctica Profesional (Ocupa todo el ancho en Desktop) */}
+            <div className="md:col-span-2 flex items-center justify-between bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
+              <div className="pr-4 flex-1">
+                <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                  💼 Opción de Grado: Práctica Profesional
+                </h3>
+
+                <p className="text-xs text-emerald-700 mt-1 pl-2">
+                  Si activas esto, el motor matemático ajustará automáticamente la ruta para 
+                  que curses <strong>PML4130</strong> (Práctica).
+                </p>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer ml-1 shrink-0 self-start">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={payload.opcion_practica}
+                  onChange={(e) => updatePayload({ opcion_practica: e.target.checked })}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
           </div>
 
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">

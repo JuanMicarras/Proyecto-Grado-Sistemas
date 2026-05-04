@@ -16,8 +16,8 @@ class StudentStateRequest(BaseModel):
 
     max_creditos: int = Field(
         default=17, 
-        ge=1, 
-        le=22, 
+        ge=7, 
+        le=23, 
         description="Límite máximo de créditos a matricular en el semestre"
     )
 
@@ -33,3 +33,7 @@ class StudentStateRequest(BaseModel):
         example=["IST7111", "IST7191"]
     )
     
+    opcion_practica: bool = Field(
+        default=False, 
+        description="True para ruta de prácticas, False para ruta de electivas complementarias"
+    )

@@ -6,6 +6,7 @@ export interface SimulationPayload {
   max_creditos: number;
   perfil_estudiante: 'balanceado' | 'agresivo' | 'suave';
   materias_prioritarias: string[];
+  opcion_practica: boolean;
 }
 
 export interface Materia {

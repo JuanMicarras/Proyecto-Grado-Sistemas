@@ -28,7 +28,8 @@ def optimize_semester(request: StudentStateRequest, optimizer: PathOptimizer = D
             creditos_acumulados=request.creditos_acumulados,
             max_creditos=request.max_creditos,
             perfil_estudiante=request.perfil_estudiante,
-            materias_prioritarias=request.materias_prioritarias
+            materias_prioritarias=request.materias_prioritarias,
+            opcion_practica=request.opcion_practica,
         )
         return resultado
     except Exception as e:
@@ -80,7 +81,8 @@ def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = 
             creditos_iniciales=request.creditos_acumulados,
             max_creditos=request.max_creditos,
             perfil_estudiante=request.perfil_estudiante,
-            materias_prioritarias=request.materias_prioritarias
+            materias_prioritarias=request.materias_prioritarias,
+            opcion_practica=request.opcion_practica
         )
         
         # Validación de interbloqueo (Deadlock en el DAG)
@@ -94,6 +96,7 @@ def simulate_full_path(request: StudentStateRequest, optimizer: PathOptimizer = 
         
     except Exception as e:
         # Prevención de exposición de trazas internas
+        print(f"Error crítico en simulación de trayectoria completa: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Fallo crítico en el motor de simulación (Pathfinder): {str(e)}"
@@ -190,7 +193,8 @@ def simulate_flexible_path(request: StudentStateRequest, optimizer: PathOptimize
             max_creditos=request.max_creditos,
             perfil_estudiante=request.perfil_estudiante,
             materias_prioritarias=request.materias_prioritarias,
-            ignorar_ventana=True  # <--- SE ACTIVA EL MODO "AVANCE FLEXIBLE"
+            ignorar_ventana=True,
+            opcion_practica=request.opcion_practica
         )
         
         if not resultado.get("trayectoria"):
