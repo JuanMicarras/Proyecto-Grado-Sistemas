@@ -13,6 +13,28 @@ const PRECIO_EXTRACREDITO_URL =
 const AVANCE_FLEXIBLE_VIDEO_URL = "https://www.youtube.com/watch?v=fPw8G3YfclY";
 const AVANCE_FLEXIBLE_PDF_URL = "/docs/Avance Flexible 202610.pdf";
 
+const nivelesIdioma = [
+  { nivel: 1, label: "Hasta Idiomas I" },
+  { nivel: 2, label: "Hasta Idiomas II" },
+  { nivel: 3, label: "Hasta Idiomas III" },
+  { nivel: 4, label: "Hasta Idiomas IV" },
+  { nivel: 5, label: "Hasta Idiomas V" },
+  { nivel: 6, label: "Hasta Idiomas VI" },
+  { nivel: 7, label: "Hasta Idiomas VII" },
+  { nivel: 8, label: "Exonerado" },
+];
+
+const romanToLevel: Record<string, number> = {
+  I: 1,
+  II: 2,
+  III: 3,
+  IV: 4,
+  V: 5,
+  VI: 6,
+  VII: 7,
+  VIII: 8,
+};
+
 export function Home() {
   const {
     payload,
@@ -25,8 +47,29 @@ export function Home() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [quickFillOpen, setQuickFillOpen] = useState(false);
+  const [languageFillOpen, setLanguageFillOpen] = useState(false);
   const [extracreditoActivo, setExtracreditoActivo] = useState(false);
+
+  const [chainReactionNotice, setChainReactionNotice] = useState<{
+    title: string;
+    message: string;
+    affectedCount: number;
+    variant: "materia" | "semestre";
+  } | null>(null);
+
+  const [prereqNotice, setPrereqNotice] = useState<{
+    codigo: string;
+    nombre: string;
+    materiasFaltantes: string[];
+  } | null>(null);
+
+  const [partialSelectionNotice, setPartialSelectionNotice] = useState<{
+    selectedCount: number;
+    omittedCount: number;
+  } | null>(null);
+
   const quickFillRef = useRef<HTMLDivElement | null>(null);
+  const languageFillRef = useRef<HTMLDivElement | null>(null);
 
   const extracreditos = Math.max(
     0,
@@ -40,6 +83,13 @@ export function Home() {
         !quickFillRef.current.contains(event.target as Node)
       ) {
         setQuickFillOpen(false);
+      }
+
+      if (
+        languageFillRef.current &&
+        !languageFillRef.current.contains(event.target as Node)
+      ) {
+        setLanguageFillOpen(false);
       }
     };
 
@@ -65,18 +115,22 @@ export function Home() {
   });
 
   const { data: graphResponse } = useQuery({
-    queryKey: ['grafo-topologia'],
-    queryFn: () => fetch("http://localhost:8000/api/v1/malla-visual").then(res => res.json()),
+    queryKey: ["grafo-topologia"],
+    queryFn: () =>
+      fetch("http://localhost:8000/api/v1/malla-visual").then((res) =>
+        res.json(),
+      ),
     refetchOnWindowFocus: false,
   });
+
   const topologia = useMemo(() => {
-    const reqMap: Record<string, string[]> = {}; // Mapa de: "Materia -> Prerrequisitos que necesita"
-    const depMap: Record<string, string[]> = {}; // Mapa de: "Materia -> Materias a las que desbloquea"
+    const reqMap: Record<string, string[]> = {};
+    const depMap: Record<string, string[]> = {};
 
     if (graphResponse?.grafo?.edges) {
       graphResponse.grafo.edges.forEach((edge: any) => {
-        const { source, target } = edge; // source = requisito, target = materia que lo pide
-        
+        const { source, target } = edge;
+
         if (!reqMap[target]) reqMap[target] = [];
         reqMap[target].push(source);
 
@@ -84,6 +138,7 @@ export function Home() {
         depMap[source].push(target);
       });
     }
+
     return { reqMap, depMap };
   }, [graphResponse]);
 
@@ -109,23 +164,65 @@ export function Home() {
     payload.materias_prioritarias,
   ]);
 
+  const getNivelIdioma = (materia: MateriaCatalogo) => {
+    const match = materia.nombre.match(
+      /Exigencia de Idiomas\s+(VIII|VII|VI|V|IV|III|II|I)/i,
+    );
+
+    if (!match) return null;
+
+    return romanToLevel[match[1].toUpperCase()] ?? null;
+  };
+
+  const aprobarHastaNivelIdioma = (nivelLimite: number) => {
+    if (!catalogoData?.catalogo) return;
+
+    const materiasIdioma = catalogoData.catalogo
+      .filter((materia) => {
+        const nivel = getNivelIdioma(materia);
+        return nivel !== null && nivel <= nivelLimite;
+      })
+      .map((materia) => materia.codigo);
+
+    const unionSinDuplicados = new Set([
+      ...payload.aprobadas,
+      ...materiasIdioma,
+    ]);
+
+    updatePayload({
+      aprobadas: Array.from(unionSinDuplicados),
+    });
+  };
+
   const handleToggleInteligente = (codigo: string) => {
     const isAprobada = payload.aprobadas.includes(codigo);
 
     if (!isAprobada) {
       const prerrequisitos = topologia.reqMap[codigo] || [];
-      const faltantes = prerrequisitos.filter(req => !payload.aprobadas.includes(req));
+      const faltantes = prerrequisitos.filter(
+        (req) => !payload.aprobadas.includes(req),
+      );
 
       if (faltantes.length > 0) {
-        const nombresFaltantes = faltantes.map(cod => 
-          catalogoData?.catalogo.find(m => m.codigo === cod)?.nombre || cod
+        const nombresFaltantes = faltantes.map(
+          (cod) =>
+            catalogoData?.catalogo.find((m) => m.codigo === cod)?.nombre || cod,
         );
-        alert(`🔒 Prerrequisitos incompletos.\n\nPara cursar ${codigo}, primero debes aprobar:\n• ${nombresFaltantes.join('\n• ')}`);
-        return; // Interceptamos y cancelamos la acción
+
+        const materiaActual =
+          catalogoData?.catalogo.find((m) => m.codigo === codigo)?.nombre ||
+          codigo;
+
+        setPrereqNotice({
+          codigo,
+          nombre: materiaActual,
+          materiasFaltantes: nombresFaltantes,
+        });
+
+        return;
       }
 
       updatePayload({ aprobadas: [...payload.aprobadas, codigo] });
-
     } else {
       const aEliminar = new Set<string>([codigo]);
       const cola = [codigo];
@@ -134,21 +231,27 @@ export function Home() {
         const actual = cola.shift()!;
         const dependientes = topologia.depMap[actual] || [];
 
-        dependientes.forEach(dep => {
+        dependientes.forEach((dep) => {
           if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
             aEliminar.add(dep);
-            cola.push(dep); 
+            cola.push(dep);
           }
         });
       }
 
-      // Feedback visual opcional si eliminó más de 2 materia
-      if (aEliminar.size > 2) {
-        alert(`⚠️ Reacción en cadena:\nAl quitar esta materia, el sistema desmarcó automáticamente ${aEliminar.size - 1} materia(s) dependiente(s).`);
+      const dependientesDesmarcadas = aEliminar.size - 1;
+
+      if (dependientesDesmarcadas > 0) {
+        setChainReactionNotice({
+          title: "Reacción en cadena",
+          message: "Se actualizaron materias dependientes de forma automática.",
+          affectedCount: dependientesDesmarcadas,
+          variant: "materia",
+        });
       }
 
       updatePayload({
-        aprobadas: payload.aprobadas.filter(c => !aEliminar.has(c))
+        aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c)),
       });
     }
   };
@@ -183,18 +286,18 @@ export function Home() {
     if (!catalogoData?.catalogo) return [];
 
     const grupos = catalogoData.catalogo
-    .filter((m) => m.codigo !== CODIGO_PRACTICA)
-    .reduce(
-      (acc, materia) => {
-        const sem = materia.semestre || 0;
+      .filter((m) => m.codigo !== CODIGO_PRACTICA)
+      .reduce(
+        (acc, materia) => {
+          const sem = materia.semestre || 0;
 
-        if (!acc[sem]) acc[sem] = [];
-        acc[sem].push(materia);
+          if (!acc[sem]) acc[sem] = [];
+          acc[sem].push(materia);
 
-        return acc;
-      },
-      {} as Record<number, MateriaCatalogo[]>,
-    );
+          return acc;
+        },
+        {} as Record<number, MateriaCatalogo[]>,
+      );
 
     return Object.entries(grupos)
       .map(([sem, materias]) => ({
@@ -234,9 +337,8 @@ export function Home() {
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
 
-
     const estanTodasSeleccionadas = codigosSemestre.every((codigo) =>
-      payload.aprobadas.includes(codigo)
+      payload.aprobadas.includes(codigo),
     );
 
     if (estanTodasSeleccionadas) {
@@ -247,7 +349,7 @@ export function Home() {
         const actual = cola.shift()!;
         const dependientes = topologia.depMap[actual] || [];
 
-        dependientes.forEach(dep => {
+        dependientes.forEach((dep) => {
           if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
             aEliminar.add(dep);
             cola.push(dep);
@@ -255,22 +357,29 @@ export function Home() {
         });
       }
 
-      // UX Feedback: Si eliminó materias de OTROS semestres, avisamos.
       const eliminadasExtra = aEliminar.size - codigosSemestre.length;
+
       if (eliminadasExtra > 0) {
-        alert(`⚠️ Reacción en cadena:\nSe desmarcaron ${eliminadasExtra} materia(s) extra de semestres superiores por pérdida de prerrequisitos.`);
+        setChainReactionNotice({
+          title: "Reacción en cadena",
+          message: "Se actualizaron materias dependientes de forma automática.",
+          affectedCount: eliminadasExtra,
+          variant: "semestre",
+        });
       }
 
       updatePayload({
         aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c)),
       });
     } else {
-      const codigosAprobables = codigosSemestre.filter(codigo => {
-        if (payload.aprobadas.includes(codigo)) return true; 
+      const codigosAprobables = codigosSemestre.filter((codigo) => {
+        if (payload.aprobadas.includes(codigo)) return true;
 
         const prerrequisitos = topologia.reqMap[codigo] || [];
-        const cumpleRequisitos = prerrequisitos.every(req => payload.aprobadas.includes(req));
-        
+        const cumpleRequisitos = prerrequisitos.every((req) =>
+          payload.aprobadas.includes(req),
+        );
+
         return cumpleRequisitos;
       });
 
@@ -282,10 +391,14 @@ export function Home() {
       updatePayload({
         aprobadas: Array.from(unionSinDuplicados),
       });
-      // UX Feedback: Si el algoritmo se negó a seleccionar algunas, le explicamos por qué.
+
       if (codigosAprobables.length < codigosSemestre.length) {
         const omitidas = codigosSemestre.length - codigosAprobables.length;
-        alert(`💡 Selección parcial:\nSe seleccionaron las materias permitidas. Se omitieron ${omitidas} materia(s) porque aún no cumples con sus prerrequisitos.`);
+
+        setPartialSelectionNotice({
+          selectedCount: codigosAprobables.length,
+          omittedCount: omitidas,
+        });
       }
     }
   };
@@ -418,54 +531,101 @@ export function Home() {
         </header>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-          <div className="flex items-center justify-between bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-            <span className="text-xs md:text-sm font-bold text-blue-800 flex items-center gap-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+            {" "}
+            <span className="text-xs md:text-sm font-bold text-blue-800 flex items-center gap-2 shrink-0">
               ⚡ Llenado rápido
             </span>
-
-            <div className="relative" ref={quickFillRef}>
-              <button
-                type="button"
-                onClick={() => setQuickFillOpen((prev) => !prev)}
-                className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer flex items-center justify-between gap-3 min-w-[220px] md:min-w-[260px]"
-              >
-                <span>Aprobar hasta semestre...</span>
-
-                <svg
-                  className={`h-4 w-4 transition-transform ${
-                    quickFillOpen ? "rotate-180" : ""
-                  }`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              <div className="relative w-full sm:w-auto" ref={quickFillRef}>
+                <button
+                  type="button"
+                  onClick={() => setQuickFillOpen((prev) => !prev)}
+                  className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer flex items-center justify-between gap-1 w-full sm:w-[215px]"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+                  <span className="truncate">Aprobar hasta semestre...</span>
 
-              {quickFillOpen && (
-                <div className="absolute right-0 mt-2 w-full min-w-[220px] md:min-w-[260px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-30">
-                  <div className="max-h-72 overflow-y-auto py-1">
-                    {semestresAgrupados.map((grupo) => (
-                      <button
-                        key={grupo.semestre}
-                        type="button"
-                        onClick={() => {
-                          aprobarHastaSemestre(grupo.semestre);
-                          setQuickFillOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-left text-xs md:text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                      >
-                        Todo hasta Semestre {grupo.semestre}
-                      </button>
-                    ))}
+                  <svg
+                    className={`h-4 w-4 shrink-0 transition-transform ${
+                      quickFillOpen ? "rotate-180" : ""
+                    }`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+
+                {quickFillOpen && (
+                  <div className="absolute right-0 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-30">
+                    <div className="max-h-72 overflow-y-auto py-1">
+                      {semestresAgrupados.map((grupo) => (
+                        <button
+                          key={grupo.semestre}
+                          type="button"
+                          onClick={() => {
+                            aprobarHastaSemestre(grupo.semestre);
+                            setQuickFillOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs md:text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                        >
+                          Todo hasta Semestre {grupo.semestre}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="relative w-full sm:w-auto" ref={languageFillRef}>
+                <button
+                  type="button"
+                  onClick={() => setLanguageFillOpen((prev) => !prev)}
+                  className="text-xs md:text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer flex items-center justify-between gap-1 w-full sm:w-[190px]"
+                >
+                  <span className="truncate">Exigencia de idioma...</span>
+
+                  <svg
+                    className={`h-4 w-4 shrink-0 transition-transform ${
+                      languageFillOpen ? "rotate-180" : ""
+                    }`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+
+                {languageFillOpen && (
+                  <div className="absolute right-0 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-30">
+                    <div className="max-h-72 overflow-y-auto py-1">
+                      {nivelesIdioma.map((item) => (
+                        <button
+                          key={item.nivel}
+                          type="button"
+                          onClick={() => {
+                            aprobarHastaNivelIdioma(item.nivel);
+                            setLanguageFillOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs md:text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -501,29 +661,41 @@ export function Home() {
 
                   <div className="flex flex-wrap gap-2 mt-1">
                     {grupo.materias.map((materia) => {
-                      const isSelected = payload.aprobadas.includes(materia.codigo);
-                      
-                      const prerrequisitos = topologia.reqMap[materia.codigo] || [];
-                      const isLocked = !isSelected && prerrequisitos.some(req => !payload.aprobadas.includes(req));
+                      const isSelected = payload.aprobadas.includes(
+                        materia.codigo,
+                      );
+
+                      const prerrequisitos =
+                        topologia.reqMap[materia.codigo] || [];
+                      const isLocked =
+                        !isSelected &&
+                        prerrequisitos.some(
+                          (req) => !payload.aprobadas.includes(req),
+                        );
 
                       return (
                         <button
                           key={materia.codigo}
                           type="button"
-                          onClick={() => handleToggleInteligente(materia.codigo)}
+                          onClick={() =>
+                            handleToggleInteligente(materia.codigo)
+                          }
                           className={`
                             text-left px-3 py-2 rounded-lg text-sm font-medium transition-all border w-full sm:w-auto flex-grow
-                            ${isSelected 
-                                ? "bg-blue-600 text-white border-blue-600 shadow-md active:scale-95" 
+                            ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-md active:scale-95"
                                 : isLocked
-                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale" 
+                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale"
                                   : "bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm active:scale-95"
                             }
                           `}
                         >
                           <div className="flex justify-between items-center gap-3">
                             <div className="flex items-center gap-1.5">
-                              {isLocked && <span className="text-[10px]">🔒</span>}
+                              {isLocked && (
+                                <span className="text-[10px]">🔒</span>
+                              )}
                               <span className="block font-bold">
                                 {materia.codigo}
                               </span>
@@ -544,10 +716,10 @@ export function Home() {
 
                           <span
                             className={`block text-xs font-normal mt-0.5 ${
-                              isSelected 
-                                ? "text-blue-100" 
-                                : isLocked 
-                                  ? "text-slate-400" 
+                              isSelected
+                                ? "text-blue-100"
+                                : isLocked
+                                  ? "text-slate-400"
                                   : "text-slate-500"
                             }`}
                           >
@@ -630,12 +802,7 @@ export function Home() {
 
           <hr className="border-slate-100" />
 
-          {/* ============================================================== */}
-          {/* SECCIÓN DE PARÁMETROS AVANZADOS (Grid Layout)                  */}
-          {/* ============================================================== */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* TARJETA 1: Extracrédito (Sin cambios estructurales) */}
             <div
               className={`flex items-center justify-between p-4 rounded-xl border ${
                 payload.max_creditos > LIMITE_BASE_CREDITOS
@@ -643,8 +810,7 @@ export function Home() {
                   : "bg-slate-50 border-slate-200"
               }`}
             >
-             {/* ... el contenido interno de extracrédito se mantiene intacto ... */}
-             <div className="pr-4 flex-1">
+              <div className="pr-4 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3
                     className={`text-sm font-bold flex items-center gap-2 ${
@@ -720,9 +886,7 @@ export function Home() {
               </label>
             </div>
 
-            {/* TARJETA 2: Avance Flexible (Sin cambios estructurales) */}
             <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
-              {/* ... el contenido interno de flexible se mantiene intacto ... */}
               <div className="pr-4 flex-1">
                 <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                   ⚡ Habilitar Avance Flexible
@@ -766,7 +930,6 @@ export function Home() {
               </label>
             </div>
 
-            {/* NUEVA TARJETA 3: Práctica Profesional (Ocupa todo el ancho en Desktop) */}
             <div className="md:col-span-2 flex items-center justify-between bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
               <div className="pr-4 flex-1">
                 <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
@@ -774,8 +937,8 @@ export function Home() {
                 </h3>
 
                 <p className="text-xs text-emerald-700 mt-1 pl-2">
-                  Si activas esto, el motor matemático ajustará automáticamente la ruta para 
-                  que curses <strong>PML4130</strong> (Práctica).
+                  Si activas esto, el motor matemático ajustará automáticamente
+                  la ruta para que curses <strong>PML4130</strong> (Práctica).
                 </p>
               </div>
 
@@ -784,12 +947,14 @@ export function Home() {
                   type="checkbox"
                   className="sr-only peer"
                   checked={payload.opcion_practica}
-                  onChange={(e) => updatePayload({ opcion_practica: e.target.checked })}
+                  onChange={(e) =>
+                    updatePayload({ opcion_practica: e.target.checked })
+                  }
                 />
+
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
               </label>
             </div>
-
           </div>
 
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
@@ -923,6 +1088,192 @@ export function Home() {
           )}
         </form>
       </section>
+
+      {chainReactionNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
+            <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xl">
+                  ⚠️
+                </div>
+
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {chainReactionNotice.title}
+                  </h2>
+
+                  <p className="mt-1 text-sm text-amber-800">
+                    {chainReactionNotice.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-sm leading-relaxed text-slate-600">
+                  {chainReactionNotice.variant === "materia" ? (
+                    <>
+                      Al quitar esta materia, el sistema{" "}
+                      <span className="font-bold text-slate-900">
+                        desmarcó automáticamente
+                      </span>{" "}
+                      <span className="font-bold text-amber-700">
+                        {chainReactionNotice.affectedCount}{" "}
+                        {chainReactionNotice.affectedCount === 1
+                          ? "materia dependiente"
+                          : "materias dependientes"}
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      Al limpiar este semestre, el sistema{" "}
+                      <span className="font-bold text-slate-900">
+                        desmarcó automáticamente
+                      </span>{" "}
+                      <span className="font-bold text-amber-700">
+                        {chainReactionNotice.affectedCount}{" "}
+                        {chainReactionNotice.affectedCount === 1
+                          ? "materia adicional"
+                          : "materias adicionales"}
+                      </span>{" "}
+                      de semestres superiores por pérdida de prerrequisitos.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setChainReactionNotice(null)}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {prereqNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-2xl">
+            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl">
+                  🔒
+                </div>
+
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Prerrequisitos incompletos
+                  </h2>
+
+                  <p className="mt-1 text-sm text-blue-800">
+                    No puedes seleccionar esta materia todavía.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-sm leading-relaxed text-slate-700">
+                  Para cursar{" "}
+                  <span className="font-bold text-slate-900">
+                    {prereqNotice.nombre} - {prereqNotice.codigo}
+                  </span>
+                  , primero debes aprobar:
+                </p>
+
+                <ul className="mt-3 space-y-2">
+                  {prereqNotice.materiasFaltantes.map((materia, index) => (
+                    <li
+                      key={`${materia}-${index}`}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                    >
+                      <span className="font-semibold text-slate-900">
+                        {materia}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setPrereqNotice(null)}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {partialSelectionNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-2xl">
+            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl">
+                  💡
+                </div>
+
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Selección parcial
+                  </h2>
+
+                  <p className="mt-1 text-sm text-blue-800">
+                    Se aplicó una selección automática según los prerrequisitos
+                    disponibles.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-sm leading-relaxed text-slate-600">
+                  El sistema seleccionó{" "}
+                  <span className="font-bold text-slate-900">
+                    {partialSelectionNotice.selectedCount}{" "}
+                    {partialSelectionNotice.selectedCount === 1
+                      ? "materia válida"
+                      : "materias válidas"}
+                  </span>{" "}
+                  y omitió{" "}
+                  <span className="font-bold text-blue-700">
+                    {partialSelectionNotice.omittedCount}{" "}
+                    {partialSelectionNotice.omittedCount === 1
+                      ? "materia"
+                      : "materias"}
+                  </span>{" "}
+                  porque todavía no cumples con sus prerrequisitos.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setPartialSelectionNotice(null)}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

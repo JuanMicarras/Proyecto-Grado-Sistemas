@@ -5,3 +5,4 @@ networkx
 pydantic
 neo4j
 ortools
+dotenv
