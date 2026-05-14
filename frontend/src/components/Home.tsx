@@ -319,6 +319,24 @@ export function Home() {
     }, 0);
   }, [payload.aprobadas, catalogoData]);
 
+  const todasAprobadas = useMemo(() => {
+    if (!catalogoData?.catalogo) return false;
+    const materiasRequeridas = catalogoData.catalogo.filter((m) => {
+      if (m.codigo === CODIGO_PRACTICA) return false;
+      if (
+        payload.opcion_practica &&
+        (m.codigo === "ELP4030" || m.codigo === "ELP8090")
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+    return materiasRequeridas.every((materia) =>
+      payload.aprobadas.includes(materia.codigo),
+    );
+  }, [catalogoData, payload.aprobadas, payload.opcion_practica]);
+
   const simulateMutation = useMutation({
     mutationFn: (payloadFinal: SimulationPayload) =>
       isFlexibleMode
@@ -1038,15 +1056,23 @@ export function Home() {
             </div>
           </div>
 
+          {/* Mensaje de feedback opcional */}
+          {todasAprobadas && (
+            <div className="p-3 bg-green-50 text-green-700 text-sm font-semibold rounded-lg border border-green-200 text-center animate-in fade-in duration-300">
+              Has seleccionado todas las materias de la malla. ¡Ya cumples con
+              los requisitos base para graduarte! 🎓
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={simulateMutation.isPending}
+            disabled={simulateMutation.isPending || todasAprobadas}
             className={`
               w-full text-white font-bold py-4 rounded-xl shadow-sm transition-colors text-lg flex justify-center items-center gap-2
               ${
-                simulateMutation.isPending
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
+                simulateMutation.isPending || todasAprobadas
+                  ? "bg-slate-400 cursor-not-allowed" // Color gris si está deshabilitado
+                  : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]" // Color normal
               }
             `}
           >
@@ -1066,7 +1092,6 @@ export function Home() {
                     stroke="currentColor"
                     strokeWidth="4"
                   ></circle>
-
                   <path
                     className="opacity-75"
                     fill="currentColor"
@@ -1075,8 +1100,10 @@ export function Home() {
                 </svg>
                 Procesando en el servidor...
               </>
+            ) : todasAprobadas ? (
+              "Malla Completada" // Texto alternativo
             ) : (
-              "Generar Ruta Óptima"
+              "Generar Ruta Óptima" // Texto original
             )}
           </button>
 
