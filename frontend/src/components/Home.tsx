@@ -1,39 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SimulationPayload, MateriaCatalogo } from "../types/academic";
+import type {
+  ChainReactionNoticeData,
+  PrereqNoticeData,
+  PartialSelectionNoticeData,
+} from "../types/modals";
 import { api } from "../api/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { GraduationTimeline } from "./GraduationTimeline";
 import { useNavigate } from "react-router-dom";
 import { useAcademicStore } from "../store/academicStore";
-
-const LIMITE_BASE_CREDITOS = 17;
-const CODIGO_PRACTICA = "PML4130";
-const PRECIO_EXTRACREDITO_URL =
-  "https://www.uninorte.edu.co/documents/19420483/68546913/Tarifas+derechos+pecuniarios+en+la+web+-+ajustado+2026+marzo+20+%281%29.pdf/9977c107-9cad-6a7a-925b-88e2393b5f49?t=1775593952436";
-const AVANCE_FLEXIBLE_VIDEO_URL = "https://www.youtube.com/watch?v=fPw8G3YfclY";
-const AVANCE_FLEXIBLE_PDF_URL = "/docs/Avance Flexible 202610.pdf";
-
-const nivelesIdioma = [
-  { nivel: 1, label: "Hasta Idiomas I" },
-  { nivel: 2, label: "Hasta Idiomas II" },
-  { nivel: 3, label: "Hasta Idiomas III" },
-  { nivel: 4, label: "Hasta Idiomas IV" },
-  { nivel: 5, label: "Hasta Idiomas V" },
-  { nivel: 6, label: "Hasta Idiomas VI" },
-  { nivel: 7, label: "Hasta Idiomas VII" },
-  { nivel: 8, label: "Exonerado" },
-];
-
-const romanToLevel: Record<string, number> = {
-  I: 1,
-  II: 2,
-  III: 3,
-  IV: 4,
-  V: 5,
-  VI: 6,
-  VII: 7,
-  VIII: 8,
-};
+import {
+  LIMITE_BASE_CREDITOS,
+  CODIGO_PRACTICA,
+  URLS,
+  nivelesIdioma,
+  romanToLevel,
+} from "../config/constants";
+import { ChainReactionModal } from "./modals/ChainReactionModal";
+import { PrereqNoticeModal } from "./modals/PrereqNoticeModal";
+import { PartialSelectionModal } from "./modals/PartialSelectionModal";
+import { SemesterGrid } from "./home/SemesterGrid";
+import { SimulationSettings } from "./home/SimulationSettings";
+import { useSimulationLogic } from "../hooks/useSimulationLogic";
 
 export function Home() {
   const {
@@ -48,33 +37,17 @@ export function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [quickFillOpen, setQuickFillOpen] = useState(false);
   const [languageFillOpen, setLanguageFillOpen] = useState(false);
-  const [extracreditoActivo, setExtracreditoActivo] = useState(false);
 
-  const [chainReactionNotice, setChainReactionNotice] = useState<{
-    title: string;
-    message: string;
-    affectedCount: number;
-    variant: "materia" | "semestre";
-  } | null>(null);
-
-  const [prereqNotice, setPrereqNotice] = useState<{
-    codigo: string;
-    nombre: string;
-    materiasFaltantes: string[];
-  } | null>(null);
-
-  const [partialSelectionNotice, setPartialSelectionNotice] = useState<{
-    selectedCount: number;
-    omittedCount: number;
-  } | null>(null);
+  const [chainReactionNotice, setChainReactionNotice] =
+    useState<ChainReactionNoticeData | null>(null);
+  const [prereqNotice, setPrereqNotice] = useState<PrereqNoticeData | null>(
+    null,
+  );
+  const [partialSelectionNotice, setPartialSelectionNotice] =
+    useState<PartialSelectionNoticeData | null>(null);
 
   const quickFillRef = useRef<HTMLDivElement | null>(null);
   const languageFillRef = useRef<HTMLDivElement | null>(null);
-
-  const extracreditos = Math.max(
-    0,
-    payload.max_creditos - LIMITE_BASE_CREDITOS,
-  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -99,10 +72,6 @@ export function Home() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  useEffect(() => {
-    setExtracreditoActivo(payload.max_creditos > LIMITE_BASE_CREDITOS);
-  }, [payload.max_creditos]);
 
   const {
     data: catalogoData,
@@ -431,34 +400,6 @@ export function Home() {
     updatePayload({ aprobadas: materiasAAprobar });
   };
 
-  const handleMaxCreditosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value;
-
-    if (rawValue === "") {
-      updatePayload({ max_creditos: 0 });
-      return;
-    }
-
-    const value = Number(rawValue);
-    const limitedValue = Math.max(7, Math.min(21, value));
-
-    updatePayload({
-      max_creditos: limitedValue,
-    });
-  };
-
-  const handleExtracreditoChange = (checked: boolean) => {
-    if (!checked) {
-      setExtracreditoActivo(false);
-      updatePayload({ max_creditos: LIMITE_BASE_CREDITOS });
-      return;
-    }
-
-    if (payload.max_creditos > LIMITE_BASE_CREDITOS) {
-      setExtracreditoActivo(true);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -647,333 +588,21 @@ export function Home() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-            {semestresAgrupados.map((grupo) => {
-              const codigosGrupo = grupo.materias.map((m) => m.codigo);
-
-              const todasSeleccionadas = codigosGrupo.every((c) =>
-                payload.aprobadas.includes(c),
-              );
-
-              return (
-                <div key={grupo.semestre} className="flex flex-col gap-2">
-                  <div className="flex justify-between items-end border-b pb-1 sticky top-0 bg-white z-10 pt-1">
-                    <h3 className="text-sm font-bold text-slate-700">
-                      Semestre {grupo.semestre}
-                    </h3>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleSemestreCompleto(grupo.materias)}
-                      className={`text-[10px] sm:text-xs font-bold px-2 py-1 rounded transition-colors ${
-                        todasSeleccionadas
-                          ? "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
-                    >
-                      {todasSeleccionadas
-                        ? "Limpiar semestre"
-                        : "Seleccionar todas"}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {grupo.materias.map((materia) => {
-                      const isSelected = payload.aprobadas.includes(
-                        materia.codigo,
-                      );
-
-                      const prerrequisitos =
-                        topologia.reqMap[materia.codigo] || [];
-                      const isLocked =
-                        !isSelected &&
-                        prerrequisitos.some(
-                          (req) => !payload.aprobadas.includes(req),
-                        );
-
-                      return (
-                        <button
-                          key={materia.codigo}
-                          type="button"
-                          onClick={() =>
-                            handleToggleInteligente(materia.codigo)
-                          }
-                          className={`
-                            text-left px-3 py-2 rounded-lg text-sm font-medium transition-all border w-full sm:w-auto flex-grow
-                            ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600 shadow-md active:scale-95"
-                                : isLocked
-                                  ? "bg-slate-50/50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 grayscale"
-                                  : "bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm active:scale-95"
-                            }
-                          `}
-                        >
-                          <div className="flex justify-between items-center gap-3">
-                            <div className="flex items-center gap-1.5">
-                              {isLocked && (
-                                <span className="text-[10px]">🔒</span>
-                              )}
-                              <span className="block font-bold">
-                                {materia.codigo}
-                              </span>
-                            </div>
-
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                isSelected
-                                  ? "bg-blue-500 text-white"
-                                  : isLocked
-                                    ? "bg-slate-200 text-slate-400"
-                                    : "bg-slate-100 text-slate-500 border border-slate-200"
-                              }`}
-                            >
-                              {materia.creditos} cr
-                            </span>
-                          </div>
-
-                          <span
-                            className={`block text-xs font-normal mt-0.5 ${
-                              isSelected
-                                ? "text-blue-100"
-                                : isLocked
-                                  ? "text-slate-400"
-                                  : "text-slate-500"
-                            }`}
-                          >
-                            {materia.nombre}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Componente del Grid de Materias */}
+          <SemesterGrid
+            semestresAgrupados={semestresAgrupados}
+            aprobadas={payload.aprobadas}
+            topologia={topologia}
+            onToggleSemestreCompleto={toggleSemestreCompleto}
+            onToggleInteligente={handleToggleInteligente}
+          />
 
           <hr className="border-slate-100" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="max_creditos"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Límite de créditos por Semestre
-              </label>
-
-              <div className="relative">
-                <input
-                  id="max_creditos"
-                  type="number"
-                  min={7}
-                  max={21}
-                  value={payload.max_creditos}
-                  onChange={handleMaxCreditosChange}
-                  className="
-                    w-full px-4 py-3 pr-4 rounded-lg border border-slate-200
-                    bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500
-                    outline-none transition-all
-                    [&::-webkit-inner-spin-button]:opacity-100
-                    [&::-webkit-inner-spin-button]:cursor-pointer
-                    [&::-webkit-outer-spin-button]:opacity-100
-                  "
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <label
-                  htmlFor="perfil"
-                  className="text-sm font-semibold text-slate-500"
-                >
-                  Perfil de Ritmo
-                </label>
-
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-                  Deshabilitado
-                </span>
-              </div>
-
-              <div className="relative">
-                <select
-                  id="perfil"
-                  value={payload.perfil_estudiante}
-                  disabled
-                  aria-disabled="true"
-                  title="Esta opción estará disponible más adelante"
-                  className="
-                    w-full px-4 py-3 pr-10 rounded-lg border border-slate-200
-                    bg-slate-100 text-slate-400 outline-none appearance-none
-                    cursor-not-allowed opacity-70
-                  "
-                >
-                  <option value="suave">Suave (Relajado)</option>
-                  <option value="balanceado">Balanceado (Recomendado)</option>
-                  <option value="agresivo">Agresivo (Rápido)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          {/* Componente de Configuraciones y Extracrédito */}
+          <SimulationSettings />
 
           <hr className="border-slate-100" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              className={`flex items-center justify-between p-4 rounded-xl border ${
-                payload.max_creditos > LIMITE_BASE_CREDITOS
-                  ? "bg-cyan-50/60 border-cyan-200"
-                  : "bg-slate-50 border-slate-200"
-              }`}
-            >
-              <div className="pr-4 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3
-                    className={`text-sm font-bold flex items-center gap-2 ${
-                      payload.max_creditos > LIMITE_BASE_CREDITOS
-                        ? "text-cyan-900"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    💳 Extracrédito
-                  </h3>
-                </div>
-
-                <p
-                  className={`text-xs mt-1 ${
-                    payload.max_creditos > LIMITE_BASE_CREDITOS
-                      ? "text-cyan-800"
-                      : "text-slate-500"
-                  }`}
-                >
-                  Más de 17 créditos implica pago de extracrédito.
-                </p>
-
-                <div
-                  className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${
-                    payload.max_creditos > LIMITE_BASE_CREDITOS
-                      ? "text-cyan-800"
-                      : "text-slate-500"
-                  }`}
-                >
-                  <span>
-                    <span className="font-semibold">Extracréditos:</span>{" "}
-                    {extracreditos}
-                  </span>
-
-                  <span>
-                    <a
-                      href={PRECIO_EXTRACREDITO_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`font-semibold underline ${
-                        payload.max_creditos > LIMITE_BASE_CREDITOS
-                          ? "text-cyan-700"
-                          : "text-slate-600"
-                      }`}
-                    >
-                      Valor actual
-                    </a>
-                  </span>
-                </div>
-              </div>
-
-              <label
-                title={
-                  payload.max_creditos <= LIMITE_BASE_CREDITOS
-                    ? "Disponible al superar 17 créditos por semestre."
-                    : "Desactivar extracrédito"
-                }
-                className={`relative inline-flex items-center ml-4 shrink-0 self-start ${
-                  payload.max_creditos > LIMITE_BASE_CREDITOS
-                    ? "cursor-pointer"
-                    : "cursor-not-allowed opacity-60"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={extracreditoActivo}
-                  disabled={payload.max_creditos <= LIMITE_BASE_CREDITOS}
-                  onChange={(e) => handleExtracreditoChange(e.target.checked)}
-                />
-
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600 peer-disabled:bg-slate-200"></div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border border-amber-200">
-              <div className="pr-4 flex-1">
-                <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
-                  ⚡ Habilitar Avance Flexible
-                </h3>
-
-                <p className="text-xs text-amber-700 mt-1 pl-2">
-                  Permite al algoritmo saltar ciertos prerrequisitos si cumples
-                  con las condiciones. Ideal para adelantar materias.
-                </p>
-
-                <div className="mt-2 pl-2 flex items-center gap-4 text-xs whitespace-nowrap">
-                  <a
-                    href={AVANCE_FLEXIBLE_VIDEO_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-amber-800 underline hover:text-amber-900"
-                  >
-                    Video explicativo
-                  </a>
-
-                  <a
-                    href={AVANCE_FLEXIBLE_PDF_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-amber-800 underline hover:text-amber-900"
-                  >
-                    PDF informativo
-                  </a>
-                </div>
-              </div>
-
-              <label className="relative inline-flex items-center cursor-pointer ml-1 shrink-0 self-start">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={isFlexibleMode}
-                  onChange={(e) => setFlexibleMode(e.target.checked)}
-                />
-
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-              </label>
-            </div>
-
-            <div className="md:col-span-2 flex items-center justify-between bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
-              <div className="pr-4 flex-1">
-                <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
-                  💼 Opción de Grado: Práctica Profesional
-                </h3>
-
-                <p className="text-xs text-emerald-700 mt-1 pl-2">
-                  Si activas esto, el motor matemático ajustará automáticamente
-                  la ruta para que curses <strong>PML4130</strong> (Práctica).
-                </p>
-              </div>
-
-              <label className="relative inline-flex items-center cursor-pointer ml-1 shrink-0 self-start">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={payload.opcion_practica}
-                  onChange={(e) =>
-                    updatePayload({ opcion_practica: e.target.checked })
-                  }
-                />
-
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-              </label>
-            </div>
-          </div>
 
           <div className="flex flex-col gap-3 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
             <header>
@@ -1117,189 +746,22 @@ export function Home() {
       </section>
 
       {chainReactionNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
-            <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xl">
-                  ⚠️
-                </div>
-
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    {chainReactionNotice.title}
-                  </h2>
-
-                  <p className="mt-1 text-sm text-amber-800">
-                    {chainReactionNotice.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5">
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm leading-relaxed text-slate-600">
-                  {chainReactionNotice.variant === "materia" ? (
-                    <>
-                      Al quitar esta materia, el sistema{" "}
-                      <span className="font-bold text-slate-900">
-                        desmarcó automáticamente
-                      </span>{" "}
-                      <span className="font-bold text-amber-700">
-                        {chainReactionNotice.affectedCount}{" "}
-                        {chainReactionNotice.affectedCount === 1
-                          ? "materia dependiente"
-                          : "materias dependientes"}
-                      </span>
-                      .
-                    </>
-                  ) : (
-                    <>
-                      Al limpiar este semestre, el sistema{" "}
-                      <span className="font-bold text-slate-900">
-                        desmarcó automáticamente
-                      </span>{" "}
-                      <span className="font-bold text-amber-700">
-                        {chainReactionNotice.affectedCount}{" "}
-                        {chainReactionNotice.affectedCount === 1
-                          ? "materia adicional"
-                          : "materias adicionales"}
-                      </span>{" "}
-                      de semestres superiores por pérdida de prerrequisitos.
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setChainReactionNotice(null)}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChainReactionModal
+          notice={chainReactionNotice}
+          onClose={() => setChainReactionNotice(null)}
+        />
       )}
-
       {prereqNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-2xl">
-            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl">
-                  🔒
-                </div>
-
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Prerrequisitos incompletos
-                  </h2>
-
-                  <p className="mt-1 text-sm text-blue-800">
-                    No puedes seleccionar esta materia todavía.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5">
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm leading-relaxed text-slate-700">
-                  Para cursar{" "}
-                  <span className="font-bold text-slate-900">
-                    {prereqNotice.nombre} - {prereqNotice.codigo}
-                  </span>
-                  , primero debes aprobar:
-                </p>
-
-                <ul className="mt-3 space-y-2">
-                  {prereqNotice.materiasFaltantes.map((materia, index) => (
-                    <li
-                      key={`${materia}-${index}`}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                    >
-                      <span className="font-semibold text-slate-900">
-                        {materia}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setPrereqNotice(null)}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
+        <PrereqNoticeModal
+          notice={prereqNotice}
+          onClose={() => setPrereqNotice(null)}
+        />
       )}
-
       {partialSelectionNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-2xl">
-            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl">
-                  💡
-                </div>
-
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Selección parcial
-                  </h2>
-
-                  <p className="mt-1 text-sm text-blue-800">
-                    Se aplicó una selección automática según los prerrequisitos
-                    disponibles.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5">
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm leading-relaxed text-slate-600">
-                  El sistema seleccionó{" "}
-                  <span className="font-bold text-slate-900">
-                    {partialSelectionNotice.selectedCount}{" "}
-                    {partialSelectionNotice.selectedCount === 1
-                      ? "materia válida"
-                      : "materias válidas"}
-                  </span>{" "}
-                  y omitió{" "}
-                  <span className="font-bold text-blue-700">
-                    {partialSelectionNotice.omittedCount}{" "}
-                    {partialSelectionNotice.omittedCount === 1
-                      ? "materia"
-                      : "materias"}
-                  </span>{" "}
-                  porque todavía no cumples con sus prerrequisitos.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setPartialSelectionNotice(null)}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
+        <PartialSelectionModal
+          notice={partialSelectionNotice}
+          onClose={() => setPartialSelectionNotice(null)}
+        />
       )}
     </main>
   );
