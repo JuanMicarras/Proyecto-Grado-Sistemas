@@ -20,6 +20,12 @@ export function useSimulationLogic() {
   const [searchTerm, setSearchTerm] = useState("");
   const [quickFillOpen, setQuickFillOpen] = useState(false);
   const [languageFillOpen, setLanguageFillOpen] = useState(false);
+    const [semesterLimitNotice, setSemesterLimitNotice] = useState<{
+  nombre: string;
+  codigo: string;
+  semestreMateria: number;
+  semestreLimite: number;
+} | null>(null);
   
   // Estados para los modales
   const [chainReactionNotice, setChainReactionNotice] = useState<ChainReactionNoticeData | null>(null);
@@ -105,6 +111,19 @@ export function useSimulationLogic() {
       .slice(0, 20);
   }, [searchTerm, catalogoData, payload.aprobadas, payload.materias_prioritarias]);
 
+  const minSemestrePendiente = useMemo(() => {
+  if (!catalogoData?.catalogo) return 1;
+  
+  const pendientes = catalogoData.catalogo.filter(
+    (m) => 
+      !payload.aprobadas.includes(m.codigo) && 
+      m.codigo !== CODIGO_PRACTICA 
+  );
+
+  if (pendientes.length === 0) return 10;
+  return Math.min(...pendientes.map((m) => m.semestre));
+}, [catalogoData, payload.aprobadas]);
+
   // --- FUNCIONES (Reglas de negocio) ---
   const getNivelIdioma = (materia: MateriaCatalogo) => {
     const match = materia.nombre.match(/Exigencia de Idiomas\s+(VIII|VII|VI|V|IV|III|II|I)/i);
@@ -132,9 +151,11 @@ export function useSimulationLogic() {
     updatePayload({ aprobadas: materiasAAprobar });
   };
 
-  const handleToggleInteligente = (codigo: string) => {
+  const handleToggleInteligente = (codigo: string, esGrafo: boolean = false) => {
     const isAprobada = payload.aprobadas.includes(codigo);
+
     if (!isAprobada) {
+      // 1. Validación de Prerrequisitos (Aplica para ambos: Home y Grafo)
       const prerrequisitos = topologia.reqMap[codigo] || [];
       const faltantes = prerrequisitos.filter((req) => !payload.aprobadas.includes(req));
 
@@ -144,10 +165,35 @@ export function useSimulationLogic() {
         );
         const materiaActual = catalogoData?.catalogo.find((m) => m.codigo === codigo)?.nombre || codigo;
         setPrereqNotice({ codigo, nombre: materiaActual, materiasFaltantes: nombresFaltantes });
-        return;
+        return; // Bloqueamos porque faltan prerrequisitos
       }
+
+      // 2. Validación Estricta de Semestre (Solo aplica para el Grafo)
+      if (esGrafo) {
+        const materiaActual = catalogoData?.catalogo.find(m => m.codigo === codigo);
+        
+        // REGLA DE ORO: No más de 2 semestres de diferencia
+        // EXCEPCIÓN: Exigencias de Idiomas (códigos que inician con IGL) pueden saltar esta regla
+        if (
+          materiaActual && 
+          !materiaActual.codigo.startsWith("IGL") && 
+          materiaActual.semestre >= minSemestrePendiente + 3
+        ) {
+          setSemesterLimitNotice({
+            nombre: materiaActual.nombre,
+            codigo: materiaActual.codigo,
+            semestreMateria: materiaActual.semestre,
+            semestreLimite: minSemestrePendiente
+          });
+          return; // Bloqueamos por ubicación semestral
+        }
+      }
+
+      // 3. Si pasa TODAS las validaciones, por fin aprobamos la materia
       updatePayload({ aprobadas: [...payload.aprobadas, codigo] });
+
     } else {
+      // Lógica de deselección (Reacción en cascada BFS)
       const aEliminar = new Set<string>([codigo]);
       const cola = [codigo];
 
@@ -171,9 +217,12 @@ export function useSimulationLogic() {
           variant: "materia",
         });
       }
+      
+      // Eliminamos la materia clickeada y sus dependientes
       updatePayload({ aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c)) });
     }
   };
+
 
   const toggleSemestreCompleto = (materiasDelSemestre: MateriaCatalogo[]) => {
     const codigosSemestre = materiasDelSemestre.map((m) => m.codigo);
@@ -250,7 +299,6 @@ export function useSimulationLogic() {
     e.preventDefault();
     simulateMutation.mutate({ ...payload, creditos_acumulados: creditosAcumulados });
   };
-
   // --- RETORNO DEL HOOK ---
   // Aquí empaquetamos todo para que el componente Home lo consuma fácilmente
   return {
@@ -265,7 +313,8 @@ export function useSimulationLogic() {
       resultadosBusqueda,
       searchTerm,
       quickFillOpen,
-      languageFillOpen
+      languageFillOpen,
+      minSemestrePendiente
     },
     acciones: {
       setSearchTerm,
@@ -284,7 +333,9 @@ export function useSimulationLogic() {
       partialSelectionNotice,
       setChainReactionNotice,
       setPrereqNotice,
-      setPartialSelectionNotice
+      setPartialSelectionNotice, 
+      semesterLimitNotice, 
+      setSemesterLimitNotice
     },
     mutacion: simulateMutation,
   };

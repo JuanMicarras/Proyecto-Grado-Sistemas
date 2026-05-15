@@ -21,6 +21,7 @@ import { api } from "../api/client";
 import { useSimulationLogic } from "../hooks/useSimulationLogic";
 import { ChainReactionModal } from "./modals/ChainReactionModal";
 import { PrereqNoticeModal } from "./modals/PrereqNoticeModal";
+import { SemesterLimitModal } from "./modals/SemesterLimitModal";
 
 const CustomSubjectNode = ({ data }: { data: any }) => {
   const { isAprobada, isDisponible } = data;
@@ -143,7 +144,6 @@ export function GrafoInteractivo() {
 
     return disponiblesResponse.disponibles.map((m: any) => m.codigo);
   }, [disponiblesResponse]);
-
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -342,7 +342,7 @@ export function GrafoInteractivo() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={(_, node) => {
-            acciones.handleToggleInteligente(node.id);
+            acciones.handleToggleInteligente(node.id, true);
           }}
           nodeTypes={nodeTypes}
           fitView
@@ -353,7 +353,10 @@ export function GrafoInteractivo() {
         >
           <Background color="#1e293b" gap={24} size={2} />
 
-          <Controls showInteractive={false} className="bg-slate-800 border-slate-700 fill-white" />
+          <Controls
+            showInteractive={false}
+            className="bg-slate-800 border-slate-700 fill-white"
+          />
 
           {/*Minimapa configurado explícitamente con los colores Hexadecimales */}
           <MiniMap
@@ -377,6 +380,12 @@ export function GrafoInteractivo() {
         <PrereqNoticeModal
           notice={modales.prereqNotice}
           onClose={() => modales.setPrereqNotice(null)}
+        />
+      )}
+      {modales.semesterLimitNotice && (
+        <SemesterLimitModal
+          {...modales.semesterLimitNotice}
+          onClose={() => modales.setSemesterLimitNotice(null)}
         />
       )}
     </div>
