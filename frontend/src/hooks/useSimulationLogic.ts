@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useAcademicStore } from "../store/academicStore";
 import { api } from "../api/client";
-import { CODIGO_PRACTICA, nivelesIdioma, romanToLevel } from "../config/constants";
+import { CODIGO_PRACTICA, romanToLevel } from "../config/constants";
 import type { 
   ChainReactionNoticeData, 
   PrereqNoticeData, 
