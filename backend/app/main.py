@@ -23,6 +23,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5183",
     # "https://tu-dominio-en-produccion.edu.co" -> Agregar en despliegue
 ]
 # 2. Configuración del Middleware en la pila ASGI
