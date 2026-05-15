@@ -6,39 +6,51 @@
 ![React](https://img.shields.io/badge/Frontend-React_Vite-cyan)
 ![Neo4j](https://img.shields.io/badge/Database-Neo4j-008CC1)
 
-Este proyecto es un **Sistema de Apoyo a la Toma de Decisiones (DSS)** diseñado para optimizar la trayectoria académica de estudiantes de Ingeniería de Sistemas. Utiliza modelos matemáticos basados en grafos (DAGs) y técnicas de optimización multicriterio para sugerir rutas de graduación personalizadas.
+Este proyecto es un **Sistema de Apoyo a la Toma de Decisiones (DSS)** diseñado para optimizar la trayectoria académica de estudiantes de Ingeniería de Sistemas. Utiliza modelos matemáticos basados en grafos (DAGs) y técnicas de optimización multicriterio heurística para sugerir rutas de graduación personalizadas, respetando estrictamente la topología de correquisitos y prerrequisitos.
 
 ## 🚀 Funcionalidades Principales
 
-* **Modelado Curricular:** Representación del plan de estudios como un Grafo Dirigido Acíclico (DAG) persistente en Neo4j para gestionar prerrequisitos complejos.
-* **Optimización de Trayectoria:** Algoritmo basado en *Constraint Programming* (Google OR-Tools) que calcula la ruta más corta para el grado.
-* **Simulación de Escenarios:**
-    * Control de carga académica (créditos máximos por semestre).
-    * **Avance Flexible:** Opción para simular matrículas ignorando restricciones de nivel (bloqueos por rezago).
-* **Visualización Interactiva:** Interfaz web para seleccionar materias aprobadas y visualizar el plan sugerido.
+* **Modelado Topológico Curricular:** Representación del plan de estudios como un Grafo Dirigido Acíclico (DAG) persistente en Neo4j.
+* **Motor de Optimización Multicriterio (MCO):** Algoritmo *Greedy* adaptado al Problema de la Mochila 0/1 (Knapsack) que evalúa el *Longest Path* (Ruta Crítica) del DAG para empaquetar semestres óptimos.
+* **Perfiles de Simulación:** El sistema adapta las recomendaciones basándose en la preferencia del estudiante:
+    * *Agresivo:* Maximiza el avance topológico asumiendo mayor dificultad.
+    * *Suave:* Minimiza la dificultad semestral.
+    * *Balanceado:* Equilibra carga de créditos, rezago de semestres y cuellos de botella.
+* **Agencia del Usuario (Materias Prioritarias):** Capacidad de inyectar preferencias estrictas al algoritmo para forzar la matriculación de materias específicas sin romper las reglas académicas.
+* **Simulación de Escenarios Flexibles:**
+    * Restricción de cohorte móvil (Ventana N+2 con Bypass para Exigencias de Idiomas).
+    * **Avance Flexible:** Simulación de matrículas proyectadas ignorando restricciones de nivel visual.
+    * **Rutas Mutuamente Excluyentes:** Cálculo dinámico de la meta de graduación dependiendo de la elección del estudiante (Práctica Profesional vs. Electivas Libres Complementarias).
+* **Topología Visual:** Endpoints diseñados para inyectar *Swimlanes* temáticos ordenados a librerías de diagramación en el Frontend.
 
 ## 🛠️ Arquitectura y Tecnologías
 
-El sistema sigue una arquitectura desacoplada **Cliente-Servidor**, completamente dockerizada para garantizar la consistencia entre entornos de desarrollo y producción:
+El sistema sigue una **Arquitectura Híbrida (Por Capas + Orientada a Servicios RESTful)** con Inyección de Dependencias (IoC), completamente dockerizada para garantizar la consistencia entre entornos.
 
-### Backend (Cerebro)
-* **Lenguaje:** Python 3.11
-* **Framework:** FastAPI (High performance API)
-* **Motor de Optimización:** Google OR-Tools (CP-SAT Solver) y NetworkX
-* **Base de Datos:** Neo4j (Grafos) gestionada vía contenedor local
+### Backend (Application Server)
+* **Lenguaje:** Python 3.1x
+* **Framework:** FastAPI (Ejecución síncrona optimizada para concurrencia de I/O)
+* **Capa de Dominio/Servicios:** Máquinas de Estado de Markov iterativas y Algoritmia Combinatoria puramente nativa en Python (sin librerías matemáticas pesadas externas).
+* **Capa de Acceso a Datos (Persistencia):** Neo4j gestionada vía Driver Bolt con un Singleton Connection Pool.
 
-### Frontend (Interfaz)
-* **Framework:** React (Vite) servido mediante Nginx en producción
-* **Estilos:** Tailwind CSS / CSS puro
-* **Comunicación:** Axios
+### Frontend (Client Presentation)
+* **Framework:** React (Vite) servido mediante Nginx en producción.
+* **Estilos:** Tailwind CSS / CSS puro.
+* **Comunicación:** Axios (Consumo de REST API bajo políticas CORS estrictas).
 
 ## 📂 Estructura del Proyecto
 
+```text
 /
-├── backend/            # API, Lógica de Optimización y Scripts
-│   ├── app/            # Código fuente de FastAPI
+├── backend/            # API, Lógica MCO, Repositorios y Scripts
+│   ├── app/            
+│   │   ├── api/        # Controladores HTTP (routes.py)
+│   │   ├── core/       # Configuración y Singleton de Neo4j (database.py)
+│   │   ├── models/     # DTOs y validadores Pydantic (domain.py)
+│   │   ├── repository/ # Capa de abstracción Cypher y Grafo (graph_repo.py)
+│   │   └── services/   # Cerebro heurístico y Máquina de Estados (path_optimizer.py)
 │   ├── data/           # malla_sistemas_nuevo.csv (Datos semilla)
-│   ├── scripts/        # graph_builder.py (Carga de datos)
+│   ├── scripts/        # graph_builder.py (Script de ingesta ETL)
 │   ├── .env            # Variables de entorno
 │   ├── Dockerfile      # Receta de construcción del backend
 │   └── requirements.txt
@@ -49,7 +61,7 @@ El sistema sigue una arquitectura desacoplada **Cliente-Servidor**, completament
 │   └── package.json
 │
 └── docker-compose.yml  # Orquestador del ecosistema completo
-
+```
 ## ⚙️ Instalación y Ejecución
 El proyecto está diseñado para desplegarse fácilmente usando contenedores, lo que automatiza la creación de la base de datos, la carga de la malla curricular y el levantamiento de los servidores.
 
