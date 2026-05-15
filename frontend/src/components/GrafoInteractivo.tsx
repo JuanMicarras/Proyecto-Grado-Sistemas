@@ -16,8 +16,11 @@ import "@xyflow/react/dist/style.css";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
-import { useAcademicStore} from "../store/academicStore";
+import { useAcademicStore } from "../store/academicStore";
 import { api } from "../api/client";
+import { useSimulationLogic } from "../hooks/useSimulationLogic";
+import { ChainReactionModal } from "./modals/ChainReactionModal";
+import { PrereqNoticeModal } from "./modals/PrereqNoticeModal";
 
 const CustomSubjectNode = ({ data }: { data: any }) => {
   const { isAprobada, isDisponible } = data;
@@ -104,13 +107,14 @@ const CustomSubjectNode = ({ data }: { data: any }) => {
 
 const nodeTypes = { customSubject: CustomSubjectNode };
 
-
-
 export function GrafoInteractivo() {
   const navigate = useNavigate();
-  const { payload, toggleMateria, updatePayload } = useAcademicStore();
+  const { payload } = useAcademicStore();
   const aprobadas = payload.aprobadas;
   const [isExportingImage, setIsExportingImage] = useState(false);
+  const [nodosMovibles, setNodosMovibles] = useState(false);
+
+  const { estado, acciones, modales } = useSimulationLogic();
 
   const { data: graphResponse, isLoading: isLoadingGrafo } = useQuery({
     queryKey: ["grafo-curricular"],
@@ -120,28 +124,16 @@ export function GrafoInteractivo() {
       ),
   });
 
-  const creditosAcumulados = useMemo(() => {
-    if (!graphResponse?.grafo?.nodes) return 0;
-
-    return aprobadas.reduce((total, codigo) => {
-      const nodoMateria = graphResponse.grafo.nodes.find(
-        (n: any) => n.id === codigo,
-      );
-
-      return total + (nodoMateria?.data?.creditos || 0);
-    }, 0);
-  }, [aprobadas, graphResponse]);
-
   const payloadConCreditos = useMemo(
     () => ({
       ...payload,
-      creditos_acumulados: creditosAcumulados,
+      creditos_acumulados: estado.creditosAcumulados,
     }),
-    [payload, creditosAcumulados],
+    [payload, estado.creditosAcumulados],
   );
 
   const { data: disponiblesResponse } = useQuery({
-    queryKey: ["materias-disponibles", aprobadas, creditosAcumulados],
+    queryKey: ["materias-disponibles", aprobadas, estado.creditosAcumulados],
     queryFn: () => api.getDisponibles(payloadConCreditos),
     enabled: !!graphResponse,
   });
@@ -152,64 +144,9 @@ export function GrafoInteractivo() {
     return disponiblesResponse.disponibles.map((m: any) => m.codigo);
   }, [disponiblesResponse]);
 
-  const depMap = useMemo(() => {
-  const map: Record<string, string[]> = {};
-  if (graphResponse?.grafo?.edges) {
-    graphResponse.grafo.edges.forEach((edge: any) => {
-      // edge.source = Prerrequisito, edge.target = Materia que se bloquea
-      if (!map[edge.source]) map[edge.source] = [];
-      map[edge.source].push(edge.target);
-    });
-  }
-  return map;
-}, [graphResponse]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-
-  const getSubjectColor = (node: any) => {
-    const id = node.id || "";
-    const tipo = node.data?.tipo || "";
-    const nivel = node.data?.nivel || 0;
-    const gris = "#334155"; // Gris Azulado para básicas y profesionales sin otro color asignado
-    const naranja = "#f59e0b"; // Naranja para profesionales
-    const azulElectiva = "#0ea5e9"; // Azul Brillante para electivas
-    const verde = "#059669"; // Verde para especialización
-    const rosado = "#ec4899"; // Rosado para comprensivo y seminario
-    const morado = "#7e22ce"; // Morado para idiomas (IGL)
-
-    if (id.startsWith("IGL")) return morado;
-
-    if (
-      id.startsWith("MAT") ||
-      id.startsWith("FIS") ||
-      id.startsWith("ELG0008")
-    ) {
-      return gris;
-    }
-
-    if (tipo === "Electiva" || id.startsWith("CAS")) return azulElectiva;
-
-    if (
-      id.startsWith("IIN") ||
-      id.startsWith("IST4370") ||
-      id.startsWith("IST4380")
-    ) {
-      return rosado;
-    }
-
-    if ((id.startsWith("ELG") || id.startsWith("IST")) && nivel > 5) {
-      return naranja;
-    }
-
-    if (id.startsWith("IST7072") || id.startsWith("INV7363")) return naranja;
-
-    if (id.startsWith("ELP")) return verde;
-
-    if (id.startsWith("IST") || id.startsWith("E")) return gris;
-
-    return "#1e293b"; // Color por defecto
-  };
 
   const descargarMallaComoImagen = async () => {
     if (!nodes.length) {
@@ -228,12 +165,9 @@ export function GrafoInteractivo() {
 
     try {
       setIsExportingImage(true);
-
       const imageWidth = 3840;
       const imageHeight = 2160;
-
       const nodesBounds = getNodesBounds(nodes);
-
       const transform = getViewportForBounds(
         nodesBounds,
         imageWidth,
@@ -255,7 +189,6 @@ export function GrafoInteractivo() {
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,
         },
       });
-
       const link = document.createElement("a");
       link.download = "malla-interactiva.png";
       link.href = dataUrl;
@@ -270,17 +203,16 @@ export function GrafoInteractivo() {
 
   useEffect(() => {
     if (graphResponse?.grafo) {
-      // const { nodes: rawNodes, edges: rawEdges } = graphResponse.grafo;
       const materiasPorSemestre: Record<number, any[]> = {};
 
       const CODIGO_PRACTICA = "PML4130";
-
-      // Mentoría Técnica: Purgamos el nodo y cualquier flecha asociada a él para mantener la topología intacta.
-      const rawNodes = graphResponse.grafo.nodes.filter((n: any) => n.id !== CODIGO_PRACTICA);
-      const rawEdges = graphResponse.grafo.edges.filter((e: any) => 
-        e.source !== CODIGO_PRACTICA && e.target !== CODIGO_PRACTICA
+      const rawNodes = graphResponse.grafo.nodes.filter(
+        (n: any) => n.id !== CODIGO_PRACTICA,
       );
-
+      const rawEdges = graphResponse.grafo.edges.filter(
+        (e: any) =>
+          e.source !== CODIGO_PRACTICA && e.target !== CODIGO_PRACTICA,
+      );
       rawNodes.forEach((node: any) => {
         const nivel = node.data.nivel || 1;
 
@@ -292,18 +224,15 @@ export function GrafoInteractivo() {
       const columnSpacing = 300;
       const rowSpacing = 120;
       const yInglesfijo = 850;
-
       const positionedNodes: Node[] = rawNodes.map((node: any) => {
         const nivel = node.data.nivel || 1;
         const materiasEnEsteSemestre = materiasPorSemestre[nivel];
         const materiasSinIngles = materiasEnEsteSemestre.filter(
           (n) => !n.id.startsWith("IGL"),
         );
-
         const indexSinIngles = materiasSinIngles.findIndex(
           (n: any) => n.id === node.id,
         );
-
         let finalY: number;
 
         if (node.id.startsWith("IGL")) {
@@ -318,7 +247,6 @@ export function GrafoInteractivo() {
           data: {
             ...node.data,
             id: node.id,
-            colorFondo: getSubjectColor(node),
             isAprobada: aprobadas.includes(node.id),
             isDisponible: codigosDisponibles.includes(node.id),
           },
@@ -339,7 +267,6 @@ export function GrafoInteractivo() {
       setNodes(positionedNodes);
       setEdges(styledEdges);
     }
-
   }, [graphResponse, setNodes, setEdges]);
 
   useEffect(() => {
@@ -379,9 +306,22 @@ export function GrafoInteractivo() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setNodosMovibles(!nodosMovibles)}
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 border ${
+              nodosMovibles
+                ? "bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-[0_0_15px_rgba(217,119,6,0.4)]"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600"
+            }`}
+          >
+            {nodosMovibles ? "🔓 Mover nodos" : "🔒 Mover nodos"}
+          </button>
+
+          <button
+            type="button"
             onClick={descargarMallaComoImagen}
             disabled={isExportingImage}
-            className="bg-slate-700 hover:bg-slate-600 border border-blue-400/30 hover:border-blue-300/60 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_14px_rgba(59,130,246,0.18)] hover:shadow-[0_0_18px_rgba(59,130,246,0.32)] transition-all active:scale-95 disabled:bg-slate-700/60 disabled:text-slate-300 disabled:cursor-not-allowed"  >
+            className="bg-slate-700 hover:bg-slate-600 border border-blue-400/30 hover:border-blue-300/60 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_14px_rgba(59,130,246,0.18)] hover:shadow-[0_0_18px_rgba(59,130,246,0.32)] transition-all active:scale-95 disabled:bg-slate-700/60 disabled:text-slate-300 disabled:cursor-not-allowed"
+          >
             {isExportingImage ? "Generando..." : "Guardar imagen"}
           </button>
 
@@ -394,59 +334,26 @@ export function GrafoInteractivo() {
           </button>
         </div>
       </header>
-
       return (
-    
-    <div className="flex-grow">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={(_, node) => {
-          const isAprobada = payload.aprobadas.includes(node.id);
-
-          if (!isAprobada) {
-            //Aprobar materia (Solo si está disponible)
-            if (node.data.isDisponible) {
-              toggleMateria(node.id);
-            }
-          } else {
-            //Deseleccionar materia (CASCADA BFS)
-            const aEliminar = new Set<string>([node.id]);
-            const cola = [node.id];
-
-            while (cola.length > 0) {
-              const actual = cola.shift()!;
-              const dependientes = depMap[actual] || [];
-
-              dependientes.forEach(dep => {
-                // Solo propagamos si el dependiente está actualmente aprobado
-                if (payload.aprobadas.includes(dep) && !aEliminar.has(dep)) {
-                  aEliminar.add(dep);
-                  cola.push(dep);
-                }
-              });
-            }
-            updatePayload({
-              aprobadas: payload.aprobadas.filter((c) => !aEliminar.has(c))
-            });
-            
-            // Opcional: Feedback visual si hubo cascada
-            if (aEliminar.size > 2) {
-              console.log(`[Grafo] Deselección en cascada. Se eliminaron: ${Array.from(aEliminar).join(', ')}`);
-            }
-          }
-        }}
-        
-        nodeTypes={nodeTypes}
-        fitView
-        colorMode="dark"
-        minZoom={0.2}
-      >
+      <div className="flex-grow">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={(_, node) => {
+            acciones.handleToggleInteligente(node.id);
+          }}
+          nodeTypes={nodeTypes}
+          fitView
+          colorMode="dark"
+          minZoom={0.2}
+          nodesDraggable={nodosMovibles}
+          nodesConnectable={false}
+        >
           <Background color="#1e293b" gap={24} size={2} />
 
-          <Controls className="bg-slate-800 border-slate-700 fill-white" />
+          <Controls showInteractive={false} className="bg-slate-800 border-slate-700 fill-white" />
 
           {/*Minimapa configurado explícitamente con los colores Hexadecimales */}
           <MiniMap
@@ -460,6 +367,18 @@ export function GrafoInteractivo() {
           />
         </ReactFlow>
       </div>
+      {modales.chainReactionNotice && (
+        <ChainReactionModal
+          notice={modales.chainReactionNotice}
+          onClose={() => modales.setChainReactionNotice(null)}
+        />
+      )}
+      {modales.prereqNotice && (
+        <PrereqNoticeModal
+          notice={modales.prereqNotice}
+          onClose={() => modales.setPrereqNotice(null)}
+        />
+      )}
     </div>
   );
 }
